@@ -10,6 +10,7 @@ This script handles:
 import os
 import csv
 import pickle
+import random
 import shutil
 from datetime import datetime
 import numpy as np
@@ -111,7 +112,7 @@ def create_run_context():
     }
 
 
-def save_run_metadata(run_context, history, output_dir):
+def save_run_metadata(run_context, history, output_dir, config=None):
     """
     Save run metadata inside the run directory.
 
@@ -132,6 +133,9 @@ def save_run_metadata(run_context, history, output_dir):
         writer.writerow(['best_epoch', history.get('best_epoch', '')])
         writer.writerow(['best_val_loss', history.get('best_val_loss', '')])
         writer.writerow(['model_path', run_context['model_path']])
+        if config is not None:
+            for key in sorted(config):
+                writer.writerow([f'config_{key}', config[key]])
 
     print(f"CSV saved to {metadata_path}")
 
@@ -237,6 +241,107 @@ def load_dataset(dataset_path):
     return data_list, np.array(labels)
 
 
+def set_random_seed(seed):
+    """
+    Set random seeds for reproducible training runs.
+
+    Args:
+        seed (int): Random seed
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def split_dataset(data_list, labels, split_random_state=42):
+    """
+    Split the dataset into train, validation, and test sets.
+
+    Args:
+        data_list (list): Graph data objects
+        labels (np.ndarray): Regression labels
+        split_random_state (int): Random state for the split
+
+    Returns:
+        tuple: train_data, val_data, test_data
+    """
+    labeled_data = []
+    for data, label in zip(data_list, labels):
+        data_copy = data.clone()
+        data_copy.y = torch.tensor([label], dtype=torch.float)
+        labeled_data.append(data_copy)
+
+    train_indices, temp_indices = train_test_split(
+        range(len(labeled_data)), test_size=0.3, random_state=split_random_state
+    )
+    val_indices, test_indices = train_test_split(
+        temp_indices, test_size=0.5, random_state=split_random_state
+    )
+
+    train_data = [labeled_data[i] for i in train_indices]
+    val_data = [labeled_data[i] for i in val_indices]
+    test_data = [labeled_data[i] for i in test_indices]
+    return train_data, val_data, test_data
+
+
+def create_data_loaders(train_data, val_data, test_data, batch_size=8):
+    """
+    Create data loaders for the dataset split.
+
+    Args:
+        train_data (list): Training set
+        val_data (list): Validation set
+        test_data (list): Test set
+        batch_size (int): Batch size
+
+    Returns:
+        tuple: train_loader, val_loader, test_loader
+    """
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
+    return train_loader, val_loader, test_loader
+
+
+def build_model(model_name='gcn', node_feature_dim=1, hidden_dim=64, num_layers=3,
+                output_dim=1, dropout=0.2):
+    """
+    Build a configured GNN model.
+
+    Args:
+        model_name (str): Model type
+        node_feature_dim (int): Node feature dimension
+        hidden_dim (int): Hidden dimension
+        num_layers (int): Number of graph convolution layers
+        output_dim (int): Output dimension
+        dropout (float): Dropout rate
+
+    Returns:
+        nn.Module: Configured model
+    """
+    if model_name == 'gcn':
+        return GraphConvolutionalNetwork(
+            node_feature_dim=node_feature_dim,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            output_dim=output_dim,
+            dropout=dropout
+        )
+    if model_name == 'edge_gcn':
+        return EdgeFeatureGCN(
+            node_feature_dim=node_feature_dim,
+            edge_feature_dim=1,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            output_dim=output_dim,
+            dropout=dropout
+        )
+
+    raise ValueError(f"Unsupported model_name: {model_name}")
+
+
 def train_epoch(model, train_loader, optimizer, criterion, device):
     """
     Train for one epoch.
@@ -324,8 +429,9 @@ def evaluate(model, data_loader, criterion, device):
     return metrics
 
 
-def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.001, 
-                device='cpu', model_save_path='model.pt'):
+def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.001,
+                device='cpu', model_save_path='model.pt', weight_decay=1e-5,
+                patience=15, verbose=True):
     """
     Full training loop with validation.
     
@@ -342,7 +448,7 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
     Returns:
         history (dict): Training history
     """
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.MSELoss()
     model = model.to(device)
     
@@ -355,13 +461,13 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
     
     best_val_loss = float('inf')
     best_epoch = 0
-    patience = 15
     patience_counter = 0
     
-    print("Training GNN model...")
-    print("-" * 80)
-    print(f"{'Epoch':<10}{'Train Loss':<15}{'Val Loss':<15}{'Val MAE':<15}{'Val R²':<15}")
-    print("-" * 80)
+    if verbose:
+        print("Training GNN model...")
+        print("-" * 80)
+        print(f"{'Epoch':<10}{'Train Loss':<15}{'Val Loss':<15}{'Val MAE':<15}{'Val R2':<15}")
+        print("-" * 80)
     
     for epoch in range(epochs):
         # Train
@@ -376,7 +482,8 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
         history['val_mae'].append(val_metrics['mae'])
         history['val_r2'].append(val_metrics['r2'])
         
-        print(f"{epoch+1:<10}{train_loss:<15.6f}{val_loss:<15.6f}{val_metrics['mae']:<15.6f}{val_metrics['r2']:<15.6f}")
+        if verbose:
+            print(f"{epoch+1:<10}{train_loss:<15.6f}{val_loss:<15.6f}{val_metrics['mae']:<15.6f}{val_metrics['r2']:<15.6f}")
         
         # Early stopping
         if val_loss < best_val_loss:
@@ -388,21 +495,24 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print(f"\nEarly stopping at epoch {epoch+1}")
+                if verbose:
+                    print(f"\nEarly stopping at epoch {epoch+1}")
                 break
     
-    print("-" * 80)
+    if verbose:
+        print("-" * 80)
     
     # Load best model
     model.load_state_dict(torch.load(model_save_path))
     
     # Evaluate on test set
     test_metrics = evaluate(model, test_loader, criterion, device)
-    print(f"\nTest Set Performance:")
-    print(f"  MSE:  {test_metrics['mse']:.6f}")
-    print(f"  MAE:  {test_metrics['mae']:.6f}")
-    print(f"  RMSE: {test_metrics['rmse']:.6f}")
-    print(f"  R²:   {test_metrics['r2']:.6f}")
+    if verbose:
+        print(f"\nTest Set Performance:")
+        print(f"  MSE:  {test_metrics['mse']:.6f}")
+        print(f"  MAE:  {test_metrics['mae']:.6f}")
+        print(f"  RMSE: {test_metrics['rmse']:.6f}")
+        print(f"  R2:   {test_metrics['r2']:.6f}")
     
     history['test_metrics'] = test_metrics
     history['best_val_loss'] = best_val_loss
@@ -470,7 +580,7 @@ def plot_results(history, output_dir=RESULTS_DIR):
     plt.close()
 
 
-def save_results_csv(history, output_dir=RESULTS_DIR, run_context=None):
+def save_results_csv(history, output_dir=RESULTS_DIR, run_context=None, config=None):
     """
     Save training history and evaluation metrics as CSV files.
 
@@ -504,6 +614,9 @@ def save_results_csv(history, output_dir=RESULTS_DIR, run_context=None):
             writer.writerow(['run_label', run_context.get('run_label', '')])
             writer.writerow(['started_at', run_context.get('started_at_iso', '')])
             writer.writerow(['completed_at', run_context.get('completed_at_iso', '')])
+        if config is not None:
+            for key in sorted(config):
+                writer.writerow([f'config_{key}', config[key]])
 
         writer.writerow(['epochs_trained', len(history['train_loss'])])
         writer.writerow(['best_epoch', history.get('best_epoch', '')])
@@ -537,6 +650,22 @@ def main():
     """
     Main training pipeline.
     """
+    training_config = {
+        'model_name': 'gcn',
+        'hidden_dim': 64,
+        'num_layers': 3,
+        'dropout': 0.2,
+        'batch_size': 8,
+        'epochs': 100,
+        'learning_rate': 0.001,
+        'weight_decay': 1e-5,
+        'patience': 15,
+        'split_random_state': 42,
+        'seed': 42,
+    }
+
+    set_random_seed(training_config['seed'])
+
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -554,37 +683,26 @@ def main():
     print(f"Loading dataset from {dataset_path}...")
     data_list, labels = load_dataset(dataset_path)
     print(f"Loaded {len(data_list)} samples")
-    
-    # Add labels to data objects
-    for data, label in zip(data_list, labels):
-        data.y = torch.tensor([label], dtype=torch.float)
-    
-    # Split dataset: 70% train, 15% val, 15% test
-    train_indices, temp_indices = train_test_split(
-        range(len(data_list)), test_size=0.3, random_state=42
+
+    train_data, val_data, test_data = split_dataset(
+        data_list, labels, split_random_state=training_config['split_random_state']
     )
-    val_indices, test_indices = train_test_split(
-        temp_indices, test_size=0.5, random_state=42
-    )
-    
-    train_data = [data_list[i] for i in train_indices]
-    val_data = [data_list[i] for i in val_indices]
-    test_data = [data_list[i] for i in test_indices]
     
     print(f"Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
     
     # Create data loaders
-    train_loader = DataLoader(train_data, batch_size=8, shuffle=True)
-    val_loader = DataLoader(val_data, batch_size=8, shuffle=False)
-    test_loader = DataLoader(test_data, batch_size=8, shuffle=False)
+    train_loader, val_loader, test_loader = create_data_loaders(
+        train_data, val_data, test_data, batch_size=training_config['batch_size']
+    )
     
     # Create model
-    model = GraphConvolutionalNetwork(
+    model = build_model(
+        model_name=training_config['model_name'],
         node_feature_dim=1,
-        hidden_dim=64,
-        num_layers=3,
+        hidden_dim=training_config['hidden_dim'],
+        num_layers=training_config['num_layers'],
         output_dim=1,
-        dropout=0.2
+        dropout=training_config['dropout']
     )
     
     print(f"\nModel Architecture:")
@@ -595,8 +713,13 @@ def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
     model, history = train_model(
         model, train_loader, val_loader, test_loader,
-        epochs=100, lr=0.001, device=device,
-        model_save_path=run_context['model_path']
+        epochs=training_config['epochs'],
+        lr=training_config['learning_rate'],
+        device=device,
+        model_save_path=run_context['model_path'],
+        weight_decay=training_config['weight_decay'],
+        patience=training_config['patience'],
+        verbose=True
     )
 
     completed_at = datetime.now()
@@ -605,8 +728,11 @@ def main():
     
     # Plot results
     plot_results(history, output_dir=run_context['run_dir'])
-    save_results_csv(history, output_dir=run_context['run_dir'], run_context=run_context)
-    save_run_metadata(run_context, history, run_context['run_dir'])
+    save_results_csv(
+        history, output_dir=run_context['run_dir'],
+        run_context=run_context, config=training_config
+    )
+    save_run_metadata(run_context, history, run_context['run_dir'], config=training_config)
     update_run_registry(run_context, history)
     update_latest_run_pointer(run_context)
     sync_latest_model(run_context)

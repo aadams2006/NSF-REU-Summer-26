@@ -1,0 +1,20 @@
+field,value
+run_number,3
+run_label,trial_03
+started_at,2026-06-03T11:32:19
+completed_at,2026-06-03T11:32:57
+epochs_trained,91
+best_epoch,66
+best_val_loss,0.0021689090062864125
+model_path,C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\hyperparameter_searches\search_0001_20260603_113140\trials\trial_03\best_model.pt
+config_batch_size,8
+config_dropout,0.1
+config_epochs,140
+config_hidden_dim,32
+config_learning_rate,0.0015
+config_model_name,gcn
+config_num_layers,3
+config_patience,25
+config_seed,73
+config_split_random_state,42
+config_weight_decay,0.0

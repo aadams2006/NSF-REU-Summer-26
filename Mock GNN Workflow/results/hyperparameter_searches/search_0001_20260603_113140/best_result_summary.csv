@@ -1,0 +1,8 @@
+field,value
+selected_trial_label,trial_03
+selected_trial_best_val_loss,0.0021689090062864125
+selected_trial_test_mse,0.007648320868611336
+promoted_run_label,run_0002_20260603_113455
+promoted_test_mse,0.007648320868611336
+promoted_test_mae,0.07357113808393478
+promoted_test_r2,-0.05760681629180908
