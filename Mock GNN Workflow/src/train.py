@@ -8,7 +8,10 @@ This script handles:
 """
 
 import os
+import csv
 import pickle
+import shutil
+from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -18,6 +21,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 from gnn_model import GraphConvolutionalNetwork, EdgeFeatureGCN
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+DATASET_PATH = os.path.join(PROJECT_ROOT, 'data', 'lattice_dataset.pkl')
+RESULTS_DIR = os.path.join(PROJECT_ROOT, 'results')
+RUNS_DIR = os.path.join(RESULTS_DIR, 'runs')
+RUN_REGISTRY_PATH = os.path.join(RESULTS_DIR, 'run_registry.csv')
+LATEST_RUN_PATH = os.path.join(RESULTS_DIR, 'latest_run.txt')
+MODEL_PATH = os.path.join(RESULTS_DIR, 'best_model.pt')
 
 
 def convert_nx_to_pytorch_geometric(nx_graph):
@@ -62,6 +73,143 @@ def convert_nx_to_pytorch_geometric(nx_graph):
     
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
     return data
+
+
+def create_run_context():
+    """
+    Create a unique output directory and metadata for this training run.
+
+    Returns:
+        dict: Run metadata including run number, label, timestamps, and paths
+    """
+    os.makedirs(RUNS_DIR, exist_ok=True)
+
+    existing_run_numbers = []
+    for entry in os.listdir(RUNS_DIR):
+        entry_path = os.path.join(RUNS_DIR, entry)
+        if not os.path.isdir(entry_path) or not entry.startswith('run_'):
+            continue
+
+        parts = entry.split('_', 2)
+        if len(parts) >= 2 and parts[1].isdigit():
+            existing_run_numbers.append(int(parts[1]))
+
+    run_number = max(existing_run_numbers, default=0) + 1
+    started_at = datetime.now()
+    timestamp_label = started_at.strftime('%Y%m%d_%H%M%S')
+    run_label = f"run_{run_number:04d}_{timestamp_label}"
+    run_dir = os.path.join(RUNS_DIR, run_label)
+    os.makedirs(run_dir, exist_ok=True)
+
+    return {
+        'run_number': run_number,
+        'run_label': run_label,
+        'started_at': started_at,
+        'started_at_iso': started_at.isoformat(timespec='seconds'),
+        'run_dir': run_dir,
+        'model_path': os.path.join(run_dir, 'best_model.pt'),
+    }
+
+
+def save_run_metadata(run_context, history, output_dir):
+    """
+    Save run metadata inside the run directory.
+
+    Args:
+        run_context (dict): Run metadata
+        history (dict): Training history
+        output_dir (str): Directory to save metadata
+    """
+    metadata_path = os.path.join(output_dir, 'run_metadata.csv')
+    with open(metadata_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['field', 'value'])
+        writer.writerow(['run_number', run_context['run_number']])
+        writer.writerow(['run_label', run_context['run_label']])
+        writer.writerow(['started_at', run_context['started_at_iso']])
+        writer.writerow(['completed_at', run_context['completed_at_iso']])
+        writer.writerow(['epochs_trained', len(history['train_loss'])])
+        writer.writerow(['best_epoch', history.get('best_epoch', '')])
+        writer.writerow(['best_val_loss', history.get('best_val_loss', '')])
+        writer.writerow(['model_path', run_context['model_path']])
+
+    print(f"CSV saved to {metadata_path}")
+
+
+def update_run_registry(run_context, history):
+    """
+    Append the current run to the root-level run registry.
+
+    Args:
+        run_context (dict): Run metadata
+        history (dict): Training history
+    """
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    registry_exists = os.path.exists(RUN_REGISTRY_PATH)
+
+    with open(RUN_REGISTRY_PATH, 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        if not registry_exists:
+            writer.writerow([
+                'run_number',
+                'run_label',
+                'started_at',
+                'completed_at',
+                'epochs_trained',
+                'best_epoch',
+                'best_val_loss',
+                'test_loss',
+                'test_mse',
+                'test_mae',
+                'test_rmse',
+                'test_r2',
+                'run_dir',
+                'model_path'
+            ])
+
+        test_metrics = history.get('test_metrics', {})
+        writer.writerow([
+            run_context['run_number'],
+            run_context['run_label'],
+            run_context['started_at_iso'],
+            run_context['completed_at_iso'],
+            len(history['train_loss']),
+            history.get('best_epoch', ''),
+            history.get('best_val_loss', ''),
+            test_metrics.get('loss', ''),
+            test_metrics.get('mse', ''),
+            test_metrics.get('mae', ''),
+            test_metrics.get('rmse', ''),
+            test_metrics.get('r2', ''),
+            run_context['run_dir'],
+            run_context['model_path']
+        ])
+
+
+def update_latest_run_pointer(run_context):
+    """
+    Update a root-level pointer to the latest completed run.
+
+    Args:
+        run_context (dict): Run metadata
+    """
+    with open(LATEST_RUN_PATH, 'w', newline='') as latest_file:
+        latest_file.write(f"run_label={run_context['run_label']}\n")
+        latest_file.write(f"run_number={run_context['run_number']}\n")
+        latest_file.write(f"completed_at={run_context['completed_at_iso']}\n")
+        latest_file.write(f"run_dir={run_context['run_dir']}\n")
+        latest_file.write(f"model_path={run_context['model_path']}\n")
+
+
+def sync_latest_model(run_context):
+    """
+    Copy the latest trained model to the canonical root path for inference.
+
+    Args:
+        run_context (dict): Run metadata
+    """
+    shutil.copyfile(run_context['model_path'], MODEL_PATH)
+    print(f"Latest model updated at {MODEL_PATH}")
 
 
 def load_dataset(dataset_path):
@@ -206,6 +354,7 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
     }
     
     best_val_loss = float('inf')
+    best_epoch = 0
     patience = 15
     patience_counter = 0
     
@@ -232,6 +381,7 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
         # Early stopping
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            best_epoch = epoch + 1
             patience_counter = 0
             # Save best model
             torch.save(model.state_dict(), model_save_path)
@@ -255,11 +405,13 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
     print(f"  R²:   {test_metrics['r2']:.6f}")
     
     history['test_metrics'] = test_metrics
+    history['best_val_loss'] = best_val_loss
+    history['best_epoch'] = best_epoch
     
     return model, history
 
 
-def plot_results(history, output_dir='results'):
+def plot_results(history, output_dir=RESULTS_DIR):
     """
     Plot training history and evaluation results.
     
@@ -318,6 +470,69 @@ def plot_results(history, output_dir='results'):
     plt.close()
 
 
+def save_results_csv(history, output_dir=RESULTS_DIR, run_context=None):
+    """
+    Save training history and evaluation metrics as CSV files.
+
+    Args:
+        history (dict): Training history dictionary
+        output_dir (str): Directory to save CSV files
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    history_csv_path = os.path.join(output_dir, 'training_history.csv')
+    with open(history_csv_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['epoch', 'train_loss', 'val_loss', 'val_mae', 'val_r2'])
+        for epoch, (train_loss, val_loss, val_mae, val_r2) in enumerate(
+            zip(
+                history['train_loss'],
+                history['val_loss'],
+                history['val_mae'],
+                history['val_r2']
+            ),
+            start=1
+        ):
+            writer.writerow([epoch, train_loss, val_loss, val_mae, val_r2])
+
+    metrics_csv_path = os.path.join(output_dir, 'metrics_summary.csv')
+    with open(metrics_csv_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['metric', 'value'])
+        if run_context is not None:
+            writer.writerow(['run_number', run_context.get('run_number', '')])
+            writer.writerow(['run_label', run_context.get('run_label', '')])
+            writer.writerow(['started_at', run_context.get('started_at_iso', '')])
+            writer.writerow(['completed_at', run_context.get('completed_at_iso', '')])
+
+        writer.writerow(['epochs_trained', len(history['train_loss'])])
+        writer.writerow(['best_epoch', history.get('best_epoch', '')])
+        writer.writerow(['best_val_loss', history.get('best_val_loss', '')])
+
+        test_metrics = history.get('test_metrics', {})
+        for metric_name in ['loss', 'mse', 'mae', 'rmse', 'r2']:
+            if metric_name in test_metrics:
+                writer.writerow([f'test_{metric_name}', test_metrics[metric_name]])
+
+    if 'test_metrics' in history:
+        test_metrics = history['test_metrics']
+        predictions_csv_path = os.path.join(output_dir, 'test_predictions.csv')
+        with open(predictions_csv_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['sample_index', 'ground_truth', 'prediction', 'error', 'absolute_error'])
+            for index, (ground_truth, prediction) in enumerate(
+                zip(test_metrics['ground_truth'], test_metrics['predictions']),
+                start=1
+            ):
+                error = prediction - ground_truth
+                writer.writerow([index, ground_truth, prediction, error, abs(error)])
+
+    print(f"CSV saved to {history_csv_path}")
+    print(f"CSV saved to {metrics_csv_path}")
+    if 'test_metrics' in history:
+        print(f"CSV saved to {os.path.join(output_dir, 'test_predictions.csv')}")
+
+
 def main():
     """
     Main training pipeline.
@@ -325,9 +540,12 @@ def main():
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    run_context = create_run_context()
+    print(f"Run label: {run_context['run_label']}")
+    print(f"Run directory: {run_context['run_dir']}")
     
     # Load dataset
-    dataset_path = '../data/lattice_dataset.pkl'
+    dataset_path = DATASET_PATH
     if not os.path.exists(dataset_path):
         print(f"Dataset not found at {dataset_path}")
         print("Please run: python data/generate_lattice_data.py")
@@ -374,15 +592,24 @@ def main():
     print(f"Total parameters: {sum(p.numel() for p in model.parameters())}")
     
     # Train model
-    os.makedirs('results', exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     model, history = train_model(
         model, train_loader, val_loader, test_loader,
         epochs=100, lr=0.001, device=device,
-        model_save_path='results/best_model.pt'
+        model_save_path=run_context['model_path']
     )
+
+    completed_at = datetime.now()
+    run_context['completed_at'] = completed_at
+    run_context['completed_at_iso'] = completed_at.isoformat(timespec='seconds')
     
     # Plot results
-    plot_results(history)
+    plot_results(history, output_dir=run_context['run_dir'])
+    save_results_csv(history, output_dir=run_context['run_dir'], run_context=run_context)
+    save_run_metadata(run_context, history, run_context['run_dir'])
+    update_run_registry(run_context, history)
+    update_latest_run_pointer(run_context)
+    sync_latest_model(run_context)
     
     print("\nTraining complete!")
 

@@ -15,15 +15,18 @@ import numpy as np
 import torch
 from torch_geometric.data import DataLoader
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+DEFAULT_MODEL_PATH = os.path.join(PROJECT_ROOT, 'results', 'best_model.pt')
+
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.dirname(__file__))
 
 from gnn_model import GraphConvolutionalNetwork
 from train import convert_nx_to_pytorch_geometric
 from data.generate_lattice_data import create_cubic_lattice
 
 
-def load_trained_model(model_path='results/best_model.pt', device='cpu'):
+def load_trained_model(model_path=DEFAULT_MODEL_PATH, device='cpu'):
     """
     Load a trained GNN model.
     

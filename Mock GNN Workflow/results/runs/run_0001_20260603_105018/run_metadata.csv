@@ -1,0 +1,9 @@
+field,value
+run_number,1
+run_label,run_0001_20260603_105018
+started_at,2026-06-03T10:50:18
+completed_at,2026-06-03T10:50:26
+epochs_trained,72
+best_epoch,57
+best_val_loss,0.00221633049659431
+model_path,C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\runs\run_0001_20260603_105018\best_model.pt
