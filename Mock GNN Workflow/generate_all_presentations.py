@@ -32,15 +32,15 @@ def generate_powerpoint():
     print("="*60 + "\n")
     
     try:
-        from pptx import Presentation
-        from pptx.util import Inches, Pt
-        from pptx.enum.text import PP_ALIGN
-        from pptx.dml.color import RGBColor
-        
         print("Generating PowerPoint presentation...")
         
-        # Import and run the PowerPoint generation script
-        exec(open('generate_presentation.py').read())
+        # Read and execute the PowerPoint generation script with proper context
+        with open('generate_presentation.py', 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Create execution context
+        exec_globals = {'__name__': '__main__'}
+        exec(code, exec_globals)
         
         print("✅ PowerPoint presentation created successfully!\n")
         print("📁 File: GNN_Workflow_Presentation.pptx")
@@ -50,6 +50,8 @@ def generate_powerpoint():
         return True
     except Exception as e:
         print(f"❌ Error generating PowerPoint: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -61,7 +63,14 @@ def generate_html():
     
     try:
         print("Generating HTML presentation...")
-        exec(open('generate_html_presentation.py').read())
+        
+        # Read and execute the HTML generation script with proper context
+        with open('generate_html_presentation.py', 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Create execution context
+        exec_globals = {'__name__': '__main__'}
+        exec(code, exec_globals)
         
         print("✅ HTML presentation created successfully!\n")
         print("📁 File: GNN_Workflow_Presentation.html")
@@ -72,6 +81,8 @@ def generate_html():
         return True
     except Exception as e:
         print(f"❌ Error generating HTML: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

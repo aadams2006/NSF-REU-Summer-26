@@ -1,13 +1,4 @@
-"""
-Generate an HTML slideshow presentation using reveal.js.
-
-This creates a web-based presentation that can be opened in any browser.
-Perfect for sharing or presenting without PowerPoint installed.
-"""
-
-import os
-
-html_content = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -466,28 +457,3 @@ python inference.py
     </script>
 </body>
 </html>
-"""
-
-def create_html_presentation():
-    """Create the HTML presentation file."""
-    output_path = 'GNN_Workflow_Presentation.html'
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    
-    print(f"✅ HTML presentation created: {output_path}")
-    print(f"📊 Total slides: 19")
-    print(f"💾 File size: {len(html_content)} bytes")
-    print(f"\n📂 Location: {output_path}")
-    print(f"\n🌐 Open in browser:")
-    print(f"   • Double-click the file")
-    print(f"   • Or use: python -m http.server 8000")
-    print(f"\n⌨️  Controls:")
-    print(f"   • Arrow keys: Navigate slides")
-    print(f"   • ESC: Overview")
-    print(f"   • F: Fullscreen")
-    print(f"   • S: Speaker notes")
-
-
-if __name__ == '__main__':
-    create_html_presentation()
