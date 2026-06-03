@@ -1,0 +1,17 @@
+- I believe that the "BEAM AND SOLID" folder containes files only readable through abaqus and 
+subsequently were used in the gneeration/design/testing of thesse lattice stuctures through 
+the finite element solver
+- the "Crack Tip Prop" folder I think contains the code to conduct the strength tests along 
+with the csvs of the related metadata
+- the slides folder just contains research presentation materials from helders past work
+might be worth reading to get up to speed
+-i believe the URI folder is the same as the aforementioned 
+-the lattice data file seems self explainaory, might be worth looking into in more detail
+
+ACTIONABLES BEFORE NEXT COHORT MEETING:
+-DO NOT FALTER WHEN ASKED ABOUT SOMETHING YOU KNOW AGAIN AKA GNNS, LOCK IN
+-HAVE TEST USE CASE OF GNN IN ANALOGOUS SETTING TO JUSTIFY CURRENT RESEARCH PATH AND SHOW
+FORWARD TRAJECTORY
+-DOWNLOAD ABAQUS
+-ENSURE THAT YOU HAVE ALLLLLL THE NEEDED CODE PRESS BOTH PI AND HELDER AGAIN IF NEEDED
+-IF THE PRIOR WAS COMPLETED PRIOR TO NEXT MEETING GET ACTIONABLE 1ST RESULTS
