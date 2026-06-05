@@ -17,7 +17,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from torch_geometric.data import Data, DataLoader
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
@@ -44,12 +45,13 @@ def convert_nx_to_pytorch_geometric(nx_graph):
     """
     import networkx as nx
     
-    # Create node feature matrix (1 feature: atom type)
+    # Create node feature matrix using atom type and normalized node degree.
     node_features = []
     node_mapping = {}
     for i, (node, attr) in enumerate(nx_graph.nodes(data=True)):
         node_mapping[node] = i
-        node_features.append([attr.get('atom_type', 0)])
+        normalized_degree = nx_graph.degree[node] / 6.0 if len(nx_graph) > 0 else 0.0
+        node_features.append([attr.get('atom_type', 0), normalized_degree])
     
     x = torch.tensor(node_features, dtype=torch.float)
     
@@ -72,7 +74,19 @@ def convert_nx_to_pytorch_geometric(nx_graph):
         edge_index = torch.zeros((2, 0), dtype=torch.long)
         edge_attr = torch.zeros((0, 1), dtype=torch.float)
     
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+    num_nodes = len(nx_graph.nodes())
+    num_edges = len(nx_graph.edges())
+    avg_degree = (2 * num_edges / num_nodes) if num_nodes > 0 else 0.0
+    mean_bond_strength = float(edge_attr.mean().item()) if edge_attr.numel() > 0 else 0.0
+    graph_features = torch.tensor([[
+        num_nodes / 64.0,
+        num_edges / 144.0,
+        avg_degree / 6.0,
+        mean_bond_strength,
+        1.0 if nx.is_connected(nx_graph) else 0.0,
+    ]], dtype=torch.float)
+
+    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, graph_features=graph_features)
     return data
 
 
@@ -305,8 +319,21 @@ def create_data_loaders(train_data, val_data, test_data, batch_size=8):
     return train_loader, val_loader, test_loader
 
 
+def get_feature_dimensions(data_list):
+    """
+    Infer node and graph feature dimensions from the converted dataset.
+    """
+    if not data_list:
+        raise ValueError("data_list is empty; cannot infer feature dimensions.")
+
+    sample = data_list[0]
+    node_feature_dim = sample.x.shape[1]
+    global_feature_dim = sample.graph_features.shape[1] if hasattr(sample, 'graph_features') else 0
+    return node_feature_dim, global_feature_dim
+
+
 def build_model(model_name='gcn', node_feature_dim=1, hidden_dim=64, num_layers=3,
-                output_dim=1, dropout=0.2):
+                output_dim=1, dropout=0.2, global_feature_dim=0):
     """
     Build a configured GNN model.
 
@@ -327,7 +354,8 @@ def build_model(model_name='gcn', node_feature_dim=1, hidden_dim=64, num_layers=
             hidden_dim=hidden_dim,
             num_layers=num_layers,
             output_dim=output_dim,
-            dropout=dropout
+            dropout=dropout,
+            global_feature_dim=global_feature_dim
         )
     if model_name == 'edge_gcn':
         return EdgeFeatureGCN(
@@ -336,7 +364,8 @@ def build_model(model_name='gcn', node_feature_dim=1, hidden_dim=64, num_layers=
             hidden_dim=hidden_dim,
             num_layers=num_layers,
             output_dim=output_dim,
-            dropout=dropout
+            dropout=dropout,
+            global_feature_dim=global_feature_dim
         )
 
     raise ValueError(f"Unsupported model_name: {model_name}")
@@ -415,6 +444,10 @@ def evaluate(model, data_loader, criterion, device):
     
     predictions = np.array(predictions)
     ground_truth = np.array(ground_truth)
+    mean_baseline_predictions = np.full_like(ground_truth, ground_truth.mean()) if len(ground_truth) > 0 else ground_truth
+    baseline_mse = mean_squared_error(ground_truth, mean_baseline_predictions) if len(ground_truth) > 0 else 0
+    baseline_mae = mean_absolute_error(ground_truth, mean_baseline_predictions) if len(ground_truth) > 0 else 0
+    baseline_rmse = np.sqrt(baseline_mse) if len(ground_truth) > 0 else 0
     
     metrics = {
         'loss': total_loss / num_batches if num_batches > 0 else 0,
@@ -422,6 +455,9 @@ def evaluate(model, data_loader, criterion, device):
         'mae': mean_absolute_error(ground_truth, predictions),
         'rmse': np.sqrt(mean_squared_error(ground_truth, predictions)),
         'r2': r2_score(ground_truth, predictions),
+        'baseline_mse': baseline_mse,
+        'baseline_mae': baseline_mae,
+        'baseline_rmse': baseline_rmse,
         'predictions': predictions,
         'ground_truth': ground_truth
     }
@@ -513,6 +549,8 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
         print(f"  MAE:  {test_metrics['mae']:.6f}")
         print(f"  RMSE: {test_metrics['rmse']:.6f}")
         print(f"  R2:   {test_metrics['r2']:.6f}")
+        print(f"  Mean-baseline MAE:  {test_metrics['baseline_mae']:.6f}")
+        print(f"  Mean-baseline RMSE: {test_metrics['baseline_rmse']:.6f}")
     
     history['test_metrics'] = test_metrics
     history['best_val_loss'] = best_val_loss
@@ -562,12 +600,26 @@ def plot_results(history, output_dir=RESULTS_DIR):
     # Predictions vs Ground Truth
     if 'test_metrics' in history:
         test_metrics = history['test_metrics']
-        axes[1, 1].scatter(test_metrics['ground_truth'], test_metrics['predictions'], 
-                          alpha=0.6, s=50, edgecolors='k')
+        axes[1, 1].scatter(
+            test_metrics['ground_truth'],
+            test_metrics['predictions'],
+            alpha=0.6,
+            s=50,
+            edgecolors='k',
+            label='Model Predictions'
+        )
         # Add perfect prediction line
         min_val = min(test_metrics['ground_truth'].min(), test_metrics['predictions'].min())
         max_val = max(test_metrics['ground_truth'].max(), test_metrics['predictions'].max())
         axes[1, 1].plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, label='Perfect Prediction')
+        baseline_prediction = test_metrics['ground_truth'].mean()
+        axes[1, 1].axhline(
+            y=baseline_prediction,
+            color='gray',
+            linestyle=':',
+            linewidth=2,
+            label='Mean Baseline'
+        )
         axes[1, 1].set_xlabel('Ground Truth Stability')
         axes[1, 1].set_ylabel('Predicted Stability')
         axes[1, 1].set_title('Predictions vs Ground Truth (Test Set)')
@@ -623,7 +675,7 @@ def save_results_csv(history, output_dir=RESULTS_DIR, run_context=None, config=N
         writer.writerow(['best_val_loss', history.get('best_val_loss', '')])
 
         test_metrics = history.get('test_metrics', {})
-        for metric_name in ['loss', 'mse', 'mae', 'rmse', 'r2']:
+        for metric_name in ['loss', 'mse', 'mae', 'rmse', 'r2', 'baseline_mse', 'baseline_mae', 'baseline_rmse']:
             if metric_name in test_metrics:
                 writer.writerow([f'test_{metric_name}', test_metrics[metric_name]])
 
@@ -683,6 +735,8 @@ def main():
     print(f"Loading dataset from {dataset_path}...")
     data_list, labels = load_dataset(dataset_path)
     print(f"Loaded {len(data_list)} samples")
+    node_feature_dim, global_feature_dim = get_feature_dimensions(data_list)
+    print(f"Node feature dim: {node_feature_dim}, Graph feature dim: {global_feature_dim}")
 
     train_data, val_data, test_data = split_dataset(
         data_list, labels, split_random_state=training_config['split_random_state']
@@ -698,11 +752,12 @@ def main():
     # Create model
     model = build_model(
         model_name=training_config['model_name'],
-        node_feature_dim=1,
+        node_feature_dim=node_feature_dim,
         hidden_dim=training_config['hidden_dim'],
         num_layers=training_config['num_layers'],
         output_dim=1,
-        dropout=training_config['dropout']
+        dropout=training_config['dropout'],
+        global_feature_dim=global_feature_dim
     )
     
     print(f"\nModel Architecture:")

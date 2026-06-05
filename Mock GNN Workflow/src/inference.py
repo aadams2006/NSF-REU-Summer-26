@@ -10,16 +10,16 @@ This script shows how to:
 
 import os
 import sys
-import pickle
 import numpy as np
 import torch
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DEFAULT_MODEL_PATH = os.path.join(PROJECT_ROOT, 'results', 'best_model.pt')
 
 # Add src to path
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, PROJECT_ROOT)
 
 from gnn_model import GraphConvolutionalNetwork
 from train import convert_nx_to_pytorch_geometric
@@ -38,19 +38,20 @@ def load_trained_model(model_path=DEFAULT_MODEL_PATH, device='cpu'):
         model: Loaded model
     """
     model = GraphConvolutionalNetwork(
-        node_feature_dim=1,
+        node_feature_dim=2,
         hidden_dim=64,
         num_layers=3,
         output_dim=1,
-        dropout=0.2
+        dropout=0.2,
+        global_feature_dim=5
     )
     
     if os.path.exists(model_path):
         state_dict = torch.load(model_path, map_location=device)
         model.load_state_dict(state_dict)
-        print(f"✓ Model loaded from {model_path}")
+        print(f"[OK] Model loaded from {model_path}")
     else:
-        print(f"✗ Model file not found at {model_path}")
+        print(f"[ERROR] Model file not found at {model_path}")
         print("  Please train the model first: python src/train.py")
         return None
     

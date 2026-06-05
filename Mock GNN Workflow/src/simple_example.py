@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 import torch
 import numpy as np
-from torch_geometric.data import DataLoader
 
 # Import our modules
 from data.generate_lattice_data import create_cubic_lattice, compute_stability_label
@@ -48,10 +47,11 @@ def main():
     # Step 4: Make prediction with untrained model
     print("[4/4] Making prediction with random model...")
     model = GraphConvolutionalNetwork(
-        node_feature_dim=1,
+        node_feature_dim=2,
         hidden_dim=32,
         num_layers=3,
-        output_dim=1
+        output_dim=1,
+        global_feature_dim=5
     ).to(device)
     
     data = data.to(device)

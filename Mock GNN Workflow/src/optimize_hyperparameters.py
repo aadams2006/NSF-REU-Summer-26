@@ -19,6 +19,7 @@ from train import (
     build_model,
     create_data_loaders,
     create_run_context,
+    get_feature_dimensions,
     load_dataset,
     plot_results,
     save_results_csv,
@@ -263,17 +264,19 @@ def run_trial(trial_index, config, data_list, labels, device, search_context):
     train_data, val_data, test_data = split_dataset(
         data_list, labels, split_random_state=config['split_random_state']
     )
+    node_feature_dim, global_feature_dim = get_feature_dimensions(data_list)
     train_loader, val_loader, test_loader = create_data_loaders(
         train_data, val_data, test_data, batch_size=config['batch_size']
     )
 
     model = build_model(
         model_name=config['model_name'],
-        node_feature_dim=1,
+        node_feature_dim=node_feature_dim,
         hidden_dim=config['hidden_dim'],
         num_layers=config['num_layers'],
         output_dim=1,
-        dropout=config['dropout']
+        dropout=config['dropout'],
+        global_feature_dim=global_feature_dim
     )
 
     _, history = train_model(
@@ -327,17 +330,19 @@ def promote_best_config(best_config, data_list, labels, device):
     train_data, val_data, test_data = split_dataset(
         data_list, labels, split_random_state=best_config['split_random_state']
     )
+    node_feature_dim, global_feature_dim = get_feature_dimensions(data_list)
     train_loader, val_loader, test_loader = create_data_loaders(
         train_data, val_data, test_data, batch_size=best_config['batch_size']
     )
 
     model = build_model(
         model_name=best_config['model_name'],
-        node_feature_dim=1,
+        node_feature_dim=node_feature_dim,
         hidden_dim=best_config['hidden_dim'],
         num_layers=best_config['num_layers'],
         output_dim=1,
-        dropout=best_config['dropout']
+        dropout=best_config['dropout'],
+        global_feature_dim=global_feature_dim
     )
 
     print("\nPromoting best configuration into a standard training run...")

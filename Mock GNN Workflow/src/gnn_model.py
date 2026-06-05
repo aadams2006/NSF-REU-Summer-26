@@ -6,8 +6,7 @@ Uses PyTorch Geometric for efficient GNN computation on graph-structured data.
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GCNConv, global_mean_pool, global_add_pool
-from torch_geometric.data import Data, DataLoader
+from torch_geometric.nn import GCNConv, global_mean_pool
 
 
 class GraphConvolutionalNetwork(nn.Module):
@@ -20,7 +19,8 @@ class GraphConvolutionalNetwork(nn.Module):
     - MLP head for prediction
     """
     
-    def __init__(self, node_feature_dim=1, hidden_dim=64, num_layers=3, output_dim=1, dropout=0.2):
+    def __init__(self, node_feature_dim=1, hidden_dim=64, num_layers=3, output_dim=1,
+                 dropout=0.2, global_feature_dim=0):
         """
         Initialize the GCN model.
         
@@ -37,6 +37,7 @@ class GraphConvolutionalNetwork(nn.Module):
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.dropout_rate = dropout
+        self.global_feature_dim = global_feature_dim
         
         # Initial linear layer to project node features to hidden dimension
         self.initial_linear = nn.Linear(node_feature_dim, hidden_dim)
@@ -54,7 +55,7 @@ class GraphConvolutionalNetwork(nn.Module):
         
         # MLP head for graph-level prediction
         self.mlp = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Linear(hidden_dim + global_feature_dim, hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(p=dropout),
             nn.Linear(hidden_dim // 2, hidden_dim // 4),
@@ -77,6 +78,9 @@ class GraphConvolutionalNetwork(nn.Module):
             out (torch.Tensor): Predictions [batch_size, output_dim]
         """
         x, edge_index, batch = data.x, data.edge_index, data.batch
+        edge_weight = None
+        if hasattr(data, 'edge_attr') and data.edge_attr is not None and data.edge_attr.numel() > 0:
+            edge_weight = data.edge_attr.view(-1)
         
         # Project node features to hidden dimension
         x = self.initial_linear(x)
@@ -86,7 +90,7 @@ class GraphConvolutionalNetwork(nn.Module):
         # Apply GCN layers with residual connections
         for gcn_layer in self.gcn_layers:
             x_prev = x
-            x = gcn_layer(x, edge_index)
+            x = gcn_layer(x, edge_index, edge_weight=edge_weight)
             x = torch.relu(x)
             x = self.dropout(x)
             # Simple residual connection (if dimensions match)
@@ -96,6 +100,9 @@ class GraphConvolutionalNetwork(nn.Module):
         # Global mean pooling to create graph-level representation
         graph_repr = global_mean_pool(x, batch)
         
+        if hasattr(data, 'graph_features') and data.graph_features is not None:
+            graph_repr = torch.cat([graph_repr, data.graph_features], dim=-1)
+
         # MLP head
         out = self.mlp(graph_repr)
         
@@ -109,8 +116,8 @@ class EdgeFeatureGCN(nn.Module):
     This demonstrates how to use both node and edge features in a GNN.
     """
     
-    def __init__(self, node_feature_dim=1, edge_feature_dim=1, hidden_dim=64, 
-                 num_layers=3, output_dim=1, dropout=0.2):
+    def __init__(self, node_feature_dim=1, edge_feature_dim=1, hidden_dim=64,
+                 num_layers=3, output_dim=1, dropout=0.2, global_feature_dim=0):
         """
         Initialize the Edge-aware GCN model.
         
@@ -127,10 +134,12 @@ class EdgeFeatureGCN(nn.Module):
         self.node_feature_dim = node_feature_dim
         self.edge_feature_dim = edge_feature_dim
         self.hidden_dim = hidden_dim
+        self.global_feature_dim = global_feature_dim
         
         # Initial projections
         self.node_proj = nn.Linear(node_feature_dim, hidden_dim)
         self.edge_proj = nn.Linear(edge_feature_dim, hidden_dim)
+        self.edge_weight_proj = nn.Linear(edge_feature_dim, 1)
         
         # GCN layers
         self.gcn_layers = nn.ModuleList()
@@ -141,7 +150,7 @@ class EdgeFeatureGCN(nn.Module):
         
         # MLP head
         self.mlp = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Linear(hidden_dim * 2 + global_feature_dim, hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(p=dropout),
             nn.Linear(hidden_dim // 2, hidden_dim // 4),
@@ -161,15 +170,22 @@ class EdgeFeatureGCN(nn.Module):
             out (torch.Tensor): Predictions
         """
         x, edge_index, batch = data.x, data.edge_index, data.batch
+        edge_attr = getattr(data, 'edge_attr', None)
         
         # Project features
         x = self.node_proj(x)
         x = torch.relu(x)
+
+        edge_repr = None
+        edge_weight = None
+        if edge_attr is not None and edge_attr.numel() > 0:
+            edge_repr = torch.relu(self.edge_proj(edge_attr))
+            edge_weight = torch.sigmoid(self.edge_weight_proj(edge_attr)).view(-1)
         
         # Apply GCN layers
         for gcn_layer in self.gcn_layers:
             x_prev = x
-            x = gcn_layer(x, edge_index)
+            x = gcn_layer(x, edge_index, edge_weight=edge_weight)
             x = torch.relu(x)
             x = self.dropout(x)
             if x.shape == x_prev.shape:
@@ -177,6 +193,14 @@ class EdgeFeatureGCN(nn.Module):
         
         # Global pooling
         graph_repr = global_mean_pool(x, batch)
+        if edge_repr is not None:
+            edge_batch = batch[edge_index[0]]
+            pooled_edge_repr = global_mean_pool(edge_repr, edge_batch)
+        else:
+            pooled_edge_repr = torch.zeros_like(graph_repr)
+        graph_repr = torch.cat([graph_repr, pooled_edge_repr], dim=-1)
+        if hasattr(data, 'graph_features') and data.graph_features is not None:
+            graph_repr = torch.cat([graph_repr, data.graph_features], dim=-1)
         
         # MLP head
         out = self.mlp(graph_repr)
