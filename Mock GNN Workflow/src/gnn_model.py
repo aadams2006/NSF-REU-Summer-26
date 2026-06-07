@@ -52,8 +52,9 @@ class GraphConvolutionalNetwork(nn.Module):
         
         # Dropout
         self.dropout = nn.Dropout(p=dropout)
-        
-        # MLP head for graph-level prediction
+
+        # Let the learned graph embedding model residual structure while
+        # graph summary features provide a direct path for the target formula.
         self.mlp = nn.Sequential(
             nn.Linear(hidden_dim + global_feature_dim, hidden_dim // 2),
             nn.ReLU(),
@@ -62,6 +63,9 @@ class GraphConvolutionalNetwork(nn.Module):
             nn.ReLU(),
             nn.Dropout(p=dropout),
             nn.Linear(hidden_dim // 4, output_dim)
+        )
+        self.global_feature_residual = (
+            nn.Linear(global_feature_dim, output_dim) if global_feature_dim > 0 else None
         )
     
     def forward(self, data):
@@ -100,11 +104,14 @@ class GraphConvolutionalNetwork(nn.Module):
         # Global mean pooling to create graph-level representation
         graph_repr = global_mean_pool(x, batch)
         
-        if hasattr(data, 'graph_features') and data.graph_features is not None:
-            graph_repr = torch.cat([graph_repr, data.graph_features], dim=-1)
+        global_features = getattr(data, 'graph_features', None)
+        if global_features is not None:
+            graph_repr = torch.cat([graph_repr, global_features], dim=-1)
 
         # MLP head
         out = self.mlp(graph_repr)
+        if global_features is not None and self.global_feature_residual is not None:
+            out = out + self.global_feature_residual(global_features)
         
         return out
 
@@ -158,6 +165,9 @@ class EdgeFeatureGCN(nn.Module):
             nn.Dropout(p=dropout),
             nn.Linear(hidden_dim // 4, output_dim)
         )
+        self.global_feature_residual = (
+            nn.Linear(global_feature_dim, output_dim) if global_feature_dim > 0 else None
+        )
     
     def forward(self, data):
         """
@@ -199,10 +209,13 @@ class EdgeFeatureGCN(nn.Module):
         else:
             pooled_edge_repr = torch.zeros_like(graph_repr)
         graph_repr = torch.cat([graph_repr, pooled_edge_repr], dim=-1)
-        if hasattr(data, 'graph_features') and data.graph_features is not None:
-            graph_repr = torch.cat([graph_repr, data.graph_features], dim=-1)
+        global_features = getattr(data, 'graph_features', None)
+        if global_features is not None:
+            graph_repr = torch.cat([graph_repr, global_features], dim=-1)
         
         # MLP head
         out = self.mlp(graph_repr)
+        if global_features is not None and self.global_feature_residual is not None:
+            out = out + self.global_feature_residual(global_features)
         
         return out

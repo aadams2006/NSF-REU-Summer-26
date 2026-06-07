@@ -1,5 +1,5 @@
-run_label=run_0005_20260605_135415
-run_number=5
-completed_at=2026-06-05T13:54:21
-run_dir=C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\runs\run_0005_20260605_135415
-model_path=C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\runs\run_0005_20260605_135415\best_model.pt
+run_label=run_0007_20260607_092805
+run_number=7
+completed_at=2026-06-07T09:28:12
+run_dir=C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\runs\run_0007_20260607_092805
+model_path=C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\runs\run_0007_20260607_092805\best_model.pt

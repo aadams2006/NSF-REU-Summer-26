@@ -444,20 +444,12 @@ def evaluate(model, data_loader, criterion, device):
     
     predictions = np.array(predictions)
     ground_truth = np.array(ground_truth)
-    mean_baseline_predictions = np.full_like(ground_truth, ground_truth.mean()) if len(ground_truth) > 0 else ground_truth
-    baseline_mse = mean_squared_error(ground_truth, mean_baseline_predictions) if len(ground_truth) > 0 else 0
-    baseline_mae = mean_absolute_error(ground_truth, mean_baseline_predictions) if len(ground_truth) > 0 else 0
-    baseline_rmse = np.sqrt(baseline_mse) if len(ground_truth) > 0 else 0
-    
     metrics = {
         'loss': total_loss / num_batches if num_batches > 0 else 0,
         'mse': mean_squared_error(ground_truth, predictions),
         'mae': mean_absolute_error(ground_truth, predictions),
         'rmse': np.sqrt(mean_squared_error(ground_truth, predictions)),
         'r2': r2_score(ground_truth, predictions),
-        'baseline_mse': baseline_mse,
-        'baseline_mae': baseline_mae,
-        'baseline_rmse': baseline_rmse,
         'predictions': predictions,
         'ground_truth': ground_truth
     }
@@ -549,8 +541,6 @@ def train_model(model, train_loader, val_loader, test_loader, epochs=50, lr=0.00
         print(f"  MAE:  {test_metrics['mae']:.6f}")
         print(f"  RMSE: {test_metrics['rmse']:.6f}")
         print(f"  R2:   {test_metrics['r2']:.6f}")
-        print(f"  Mean-baseline MAE:  {test_metrics['baseline_mae']:.6f}")
-        print(f"  Mean-baseline RMSE: {test_metrics['baseline_rmse']:.6f}")
     
     history['test_metrics'] = test_metrics
     history['best_val_loss'] = best_val_loss
@@ -589,11 +579,11 @@ def plot_results(history, output_dir=RESULTS_DIR):
     axes[0, 1].legend()
     axes[0, 1].grid(True, alpha=0.3)
     
-    # R² curves
-    axes[1, 0].plot(history['val_r2'], label='Val R²', color='purple', linewidth=2)
+    # R2 curves
+    axes[1, 0].plot(history['val_r2'], label='Val R2', color='purple', linewidth=2)
     axes[1, 0].set_xlabel('Epoch')
-    axes[1, 0].set_ylabel('R² Score')
-    axes[1, 0].set_title('Validation R² Score')
+    axes[1, 0].set_ylabel('R2 Score')
+    axes[1, 0].set_title('Validation R2 Score')
     axes[1, 0].legend()
     axes[1, 0].grid(True, alpha=0.3)
     
@@ -612,14 +602,6 @@ def plot_results(history, output_dir=RESULTS_DIR):
         min_val = min(test_metrics['ground_truth'].min(), test_metrics['predictions'].min())
         max_val = max(test_metrics['ground_truth'].max(), test_metrics['predictions'].max())
         axes[1, 1].plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, label='Perfect Prediction')
-        baseline_prediction = test_metrics['ground_truth'].mean()
-        axes[1, 1].axhline(
-            y=baseline_prediction,
-            color='gray',
-            linestyle=':',
-            linewidth=2,
-            label='Mean Baseline'
-        )
         axes[1, 1].set_xlabel('Ground Truth Stability')
         axes[1, 1].set_ylabel('Predicted Stability')
         axes[1, 1].set_title('Predictions vs Ground Truth (Test Set)')
@@ -675,7 +657,7 @@ def save_results_csv(history, output_dir=RESULTS_DIR, run_context=None, config=N
         writer.writerow(['best_val_loss', history.get('best_val_loss', '')])
 
         test_metrics = history.get('test_metrics', {})
-        for metric_name in ['loss', 'mse', 'mae', 'rmse', 'r2', 'baseline_mse', 'baseline_mae', 'baseline_rmse']:
+        for metric_name in ['loss', 'mse', 'mae', 'rmse', 'r2']:
             if metric_name in test_metrics:
                 writer.writerow([f'test_{metric_name}', test_metrics[metric_name]])
 
