@@ -1,0 +1,3 @@
+-trial.new seems to be AI generaterd code, in addn. to documenting for functionality ensure that the code actually works (due to AI-generated)
+-vornoi lattice w data seems to be lattice generation script 
+-lattice datta -202... folder contains outputs for the vornoi script?
