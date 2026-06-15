@@ -1,2 +1,0 @@
-run_number,run_label,started_at,completed_at,epochs_trained,best_epoch,best_val_loss,test_loss,test_mse,test_mae,test_rmse,test_r2,run_dir,model_path
-1,run_0001_20260603_105018,2026-06-03T10:50:18,2026-06-03T10:50:26,72,57,0.00221633049659431,0.007332340348511934,0.007239727769047022,0.06978704035282135,0.08508658983087183,-0.0011067390441894531,C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\runs\run_0001_20260603_105018,C:\Users\alexg\Downloads\NSF-REU-Summer-26\Mock GNN Workflow\results\runs\run_0001_20260603_105018\best_model.pt
