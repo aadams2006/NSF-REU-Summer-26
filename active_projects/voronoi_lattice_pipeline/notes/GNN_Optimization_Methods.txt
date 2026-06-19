@@ -1,0 +1,200 @@
+GNN Optimization Methods for the Voronoi Lattice Stiffness Prototype
+====================================================================
+
+Current baseline in this repo
+-----------------------------
+- Model: 2-layer GCN (`SimpleGNN`) with batch norm, ReLU, dropout=0.1, and global mean pooling.
+- Hidden size: 24.
+- Optimizer: Adam in two fixed phases:
+  - phase 1: lr=0.003 for 200 epochs
+  - phase 2: lr=0.0005 for 700 epochs
+- Weight decay: 1e-5.
+- Dataset size: about 1000 lattice samples.
+- Node features currently used: only x and y coordinates.
+- Graph structure currently used: binary adjacency only.
+- Latest saved run already reaches about R2=0.915 on the test set, so optimization should be treated as incremental improvement, not a full rescue.
+
+Important observation before tuning
+-----------------------------------
+The saved run has reasonable MSE/RMSE and R2, but very large relative-error percentages. That usually means some true stiffness values are close to zero, which makes percentage-based metrics unstable. Before changing the optimizer, it is worth confirming whether the real issue is:
+
+- poor absolute prediction accuracy, or
+- misleading percentage metrics on small targets.
+
+Because of that, optimization should be judged mainly with MSE, RMSE, MAE, and R2, not only percent error.
+
+Highest-priority methods to try
+-------------------------------
+1. AdamW instead of plain Adam
+   - This is the first optimizer change I would try.
+   - AdamW usually gives cleaner regularization behavior than Adam with L2-style weight decay.
+   - Likely benefit: modest but reliable generalization improvement.
+
+2. Add a learning-rate scheduler
+   - The current script uses two manual learning-rate phases.
+   - A scheduler such as ReduceLROnPlateau, cosine annealing, or OneCycleLR is often better than a fixed two-step schedule.
+   - Best low-risk option here: ReduceLROnPlateau on validation loss.
+   - Likely benefit: smoother convergence and less manual tuning.
+
+3. Make early stopping real
+   - Patience is currently set to 999, so early stopping is effectively disabled.
+   - Set patience to something practical like 40 to 80 validation checks.
+   - Likely benefit: less overtraining and faster experiments.
+
+4. Normalize or transform the target stiffness
+   - Node features are standardized, but the target value is not.
+   - If stiffness spans a wide range or is skewed, standardizing y or using log(y) can stabilize training.
+   - This is especially useful if low-stiffness samples behave differently from high-stiffness samples.
+
+5. Gradient clipping
+   - Add gradient clipping before optimizer.step().
+   - Example idea: clip global norm to 1.0 or 5.0.
+   - Likely benefit: safer training when trying deeper models or more aggressive learning rates.
+
+Optimizer options: what to test first
+-------------------------------------
+AdamW
+- Recommended first.
+- Good default for this kind of regression model.
+- Suggested starting point:
+  - lr around 1e-3 to 3e-3
+  - weight_decay around 1e-4 to 1e-5
+
+SGD with momentum
+- Worth testing, but not as the first replacement.
+- SGD can generalize well, but it usually needs more careful learning-rate tuning and often trains slower at the start.
+- Suggested starting point:
+  - lr around 0.01
+  - momentum=0.9
+
+Nesterov momentum
+- This is a valid option if you want to test SGD variants.
+- In practice, Nesterov often helps a little compared with standard momentum, but it is not guaranteed to beat Adam/AdamW on a small-to-medium graph regression problem.
+- My recommendation:
+  - test AdamW first
+  - test SGD+momentum second
+  - test SGD+Nesterov third
+
+RMSprop
+- Not my first choice here, but reasonable as a comparison baseline.
+
+Architecture changes
+--------------------
+1. Increase hidden dimension before increasing depth
+   - Going from hidden_dim=24 to 32, 48, or 64 is a cleaner first architecture test than immediately adding many layers.
+   - This usually increases capacity without causing the same oversmoothing risk as deeper GCN stacks.
+
+2. Try 3 layers, then 4 layers at most
+   - More layers let each node aggregate information from more hops away.
+   - But deeper GCNs can oversmooth, meaning node embeddings become too similar.
+   - For this dataset, I would test:
+     - 2 layers baseline
+     - 3 layers
+     - 4 layers only if 3 layers helps
+
+3. Add residual or skip connections if depth increases
+   - If you test deeper GCNs, residual connections become important.
+   - Without them, deeper vanilla GCNs often get worse instead of better.
+
+4. Test a different pooling method
+   - Current model uses global mean pooling.
+   - Alternatives such as global add pooling or attention-based pooling may preserve graph-level information better depending on whether stiffness scales with graph size or edge count.
+
+5. Try a stronger graph architecture
+   - If the current GCN plateaus, a different message-passing operator may help more than just adding layers.
+   - Good candidates:
+     - GraphSAGE
+     - GIN
+     - GAT
+   - GIN is often a strong baseline for graph-level regression/classification.
+
+Feature engineering ideas
+-------------------------
+These may matter more than optimizer choice.
+
+1. Use edge weights or edge features
+   - The code currently converts adjacency into a binary edge list.
+   - If adjacency_area.csv contains meaningful edge magnitude information, that information is currently being discarded.
+   - Restoring edge weights may improve performance significantly.
+
+2. Add node-level geometric features
+   - Current node features are only x and y.
+   - Possible additions:
+     - node degree
+     - local cell area statistics
+     - distance from specimen center
+     - boundary/interior indicator
+     - local edge length summaries
+
+3. Add graph-level summary features
+   - For example:
+     - total number of nodes
+     - total number of edges
+     - mean degree
+     - density
+     - randomness parameter if available
+   - These can be concatenated near the readout layer.
+
+Loss-function ideas
+-------------------
+1. Huber loss
+   - Good if a few lattices behave like outliers.
+   - Often more stable than MSE when some targets are hard to fit.
+
+2. Weighted loss
+   - If low-stiffness samples are underfit or high-stiffness samples dominate the MSE, weighting by target range can help.
+
+3. Log-space loss
+   - If stiffness is strictly positive and spans orders of magnitude, predicting log(stiffness) can reduce scale imbalance.
+
+Regularization and training controls
+------------------------------------
+1. Tune dropout
+   - Current dropout is 0.1.
+   - Test 0.0, 0.1, 0.2, and 0.3.
+
+2. Tune weight decay
+   - Test 1e-6, 1e-5, 1e-4.
+
+3. Tune batch size
+   - Current batch size is 16.
+   - Test 8, 16, 32.
+
+4. Run multiple seeds
+   - A single train/val/test split can make small improvements look larger than they are.
+   - Run at least 3 to 5 seeds for any serious comparison.
+
+Evaluation improvements
+-----------------------
+1. Use k-fold cross-validation or repeated random splits
+   - This gives a much more reliable estimate than one split.
+
+2. Separate optimization metrics from reporting metrics
+   - Optimize for validation MSE or MAE.
+   - Report R2, RMSE, MAE, and percent error separately.
+
+3. Inspect residuals by stiffness range
+   - If the model is only failing on very low or very high stiffness cases, that should guide the next change.
+
+Recommended experiment order
+----------------------------
+1. Keep the current 2-layer architecture and switch Adam to AdamW.
+2. Add ReduceLROnPlateau and practical early stopping.
+3. Tune hidden_dim: 24, 32, 48, 64.
+4. Tune dropout and weight decay.
+5. Test 3 GCN layers with residual connections.
+6. Test Huber loss and target normalization/log target.
+7. Restore edge weights or add richer geometric features.
+8. Only then compare AdamW vs SGD vs SGD+Nesterov.
+
+Bottom-line recommendation
+--------------------------
+If the goal is the highest chance of improvement with the least wasted time, I would not start with Nesterov first. I would start with:
+
+- AdamW
+- a validation-based scheduler
+- real early stopping
+- a slightly larger hidden dimension
+- better edge/node features
+
+If those changes plateau, then deeper architectures and SGD/Nesterov comparisons become more worthwhile.
