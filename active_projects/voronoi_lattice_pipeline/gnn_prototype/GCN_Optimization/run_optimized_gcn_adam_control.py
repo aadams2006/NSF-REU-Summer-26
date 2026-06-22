@@ -5,17 +5,15 @@ from gcn_optimization_runner import OptimizedGCNConfig, run_experiment
 
 def main() -> None:
     config = OptimizedGCNConfig(
-        optimizer_name="sgd",
-        training_strategy="plateau",
-        learning_rate=0.01,
+        optimizer_name="adam",
+        training_strategy="two_phase",
         weight_decay=1e-5,
         hidden_dim=24,
-        momentum=0.9,
-        nesterov=False,
-        max_epochs=2000,
-        patience=300,
-        scheduler_patience=100,
-        grad_clip_norm=None,
+        lr_phase1=0.003,
+        lr_phase2=0.0005,
+        epochs_phase1=200,
+        epochs_phase2=700,
+        patience=999,
     )
     run_experiment(config)
 

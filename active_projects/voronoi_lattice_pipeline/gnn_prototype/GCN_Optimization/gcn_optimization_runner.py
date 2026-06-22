@@ -35,33 +35,52 @@ from colab_gnn_stiffness_prototype import (  # noqa: E402
 @dataclass
 class OptimizedGCNConfig:
     optimizer_name: str
-    learning_rate: float
-    weight_decay: float
+    learning_rate: float | None = None
+    weight_decay: float = 1e-5
     batch_size: int = 16
-    hidden_dim: int = 32
-    max_epochs: int = 600
-    patience: int = 60
+    hidden_dim: int = 24
+    training_strategy: str = "plateau"
+    lr_phase1: float = 0.003
+    lr_phase2: float = 0.0005
+    epochs_phase1: int = 200
+    epochs_phase2: int = 700
+    max_epochs: int = 900
+    patience: int = 999
     scheduler_factor: float = 0.5
-    scheduler_patience: int = 20
+    scheduler_patience: int = 60
     min_lr: float = 1e-5
-    grad_clip_norm: float = 1.0
+    grad_clip_norm: float | None = None
     momentum: float = 0.0
     nesterov: bool = False
     seed: int = 42
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def build_optimizer(model: nn.Module, config: OptimizedGCNConfig) -> torch.optim.Optimizer:
+def build_optimizer(
+    model: nn.Module,
+    config: OptimizedGCNConfig,
+    learning_rate: float | None = None,
+) -> torch.optim.Optimizer:
+    optimizer_lr = config.learning_rate if learning_rate is None else learning_rate
+    if optimizer_lr is None:
+        raise ValueError("A learning rate must be provided for this optimizer configuration.")
+
+    if config.optimizer_name == "adam":
+        return torch.optim.Adam(
+            model.parameters(),
+            lr=optimizer_lr,
+            weight_decay=config.weight_decay,
+        )
     if config.optimizer_name == "adamw":
         return AdamW(
             model.parameters(),
-            lr=config.learning_rate,
+            lr=optimizer_lr,
             weight_decay=config.weight_decay,
         )
     if config.optimizer_name == "sgd":
         return SGD(
             model.parameters(),
-            lr=config.learning_rate,
+            lr=optimizer_lr,
             momentum=config.momentum,
             nesterov=config.nesterov,
             weight_decay=config.weight_decay,
@@ -108,14 +127,6 @@ def train_optimized_model(
 ) -> dict[str, float | list[float]]:
     model.to(config.device)
     criterion = nn.MSELoss()
-    optimizer = build_optimizer(model, config)
-    scheduler = ReduceLROnPlateau(
-        optimizer,
-        mode="min",
-        factor=config.scheduler_factor,
-        patience=config.scheduler_patience,
-        min_lr=config.min_lr,
-    )
 
     history: dict[str, float | list[float]] = {
         "train_losses": [],
@@ -124,59 +135,128 @@ def train_optimized_model(
         "best_val_loss": float("inf"),
         "epochs_completed": 0,
         "optimizer_name": config.optimizer_name,
+        "training_strategy": config.training_strategy,
     }
     best_state = deepcopy(model.state_dict())
-    stale_epochs = 0
+    epochs_completed = 0
 
-    print(
-        "Starting optimized training "
-        f"optimizer={config.optimizer_name} "
-        f"lr={config.learning_rate} "
-        f"max_epochs={config.max_epochs}"
-    )
-
-    for epoch in range(1, config.max_epochs + 1):
-        train_loss = _run_epoch(
-            model,
-            train_loader,
-            criterion,
-            config.device,
-            optimizer=optimizer,
-            grad_clip_norm=config.grad_clip_norm,
+    if config.training_strategy == "two_phase":
+        phases = (
+            ("phase_1", config.lr_phase1, config.epochs_phase1),
+            ("phase_2", config.lr_phase2, config.epochs_phase2),
         )
-        val_loss = _run_epoch(model, val_loader, criterion, config.device)
-        scheduler.step(val_loss)
+        total_epochs = config.epochs_phase1 + config.epochs_phase2
 
-        current_lr = float(optimizer.param_groups[0]["lr"])
-        history["train_losses"].append(train_loss)
-        history["val_losses"].append(val_loss)
-        history["learning_rates"].append(current_lr)
+        print(
+            "Starting baseline-matched training "
+            f"optimizer={config.optimizer_name} "
+            f"hidden_dim={config.hidden_dim} "
+            f"weight_decay={config.weight_decay}"
+        )
 
-        if val_loss < history["best_val_loss"]:
-            history["best_val_loss"] = val_loss
-            best_state = deepcopy(model.state_dict())
+        for phase_name, learning_rate, phase_epochs in phases:
+            optimizer = build_optimizer(model, config, learning_rate=learning_rate)
             stale_epochs = 0
-        else:
-            stale_epochs += 1
 
-        if epoch == 1 or epoch % 20 == 0:
-            print(
-                f"  epoch {epoch:>4}/{config.max_epochs} "
-                f"train={train_loss:.6f} "
-                f"val={val_loss:.6f} "
-                f"lr={current_lr:.6g}"
+            print(f"Starting {phase_name}: lr={learning_rate}, epochs={phase_epochs}")
+            for _ in range(phase_epochs):
+                train_loss = _run_epoch(
+                    model,
+                    train_loader,
+                    criterion,
+                    config.device,
+                    optimizer=optimizer,
+                    grad_clip_norm=config.grad_clip_norm,
+                )
+                val_loss = _run_epoch(model, val_loader, criterion, config.device)
+
+                history["train_losses"].append(train_loss)
+                history["val_losses"].append(val_loss)
+                history["learning_rates"].append(float(optimizer.param_groups[0]["lr"]))
+                epochs_completed += 1
+
+                if val_loss < history["best_val_loss"]:
+                    history["best_val_loss"] = val_loss
+                    best_state = deepcopy(model.state_dict())
+                    stale_epochs = 0
+                else:
+                    stale_epochs += 1
+
+                if epochs_completed == 1 or epochs_completed % 20 == 0:
+                    print(
+                        f"  epoch {epochs_completed:>4}/{total_epochs} "
+                        f"train={train_loss:.6f} val={val_loss:.6f} "
+                        f"lr={learning_rate:.6g}"
+                    )
+
+                if stale_epochs >= config.patience:
+                    print(f"  early stopping triggered during {phase_name}")
+                    break
+    elif config.training_strategy == "plateau":
+        optimizer = build_optimizer(model, config)
+        scheduler = ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=config.scheduler_factor,
+            patience=config.scheduler_patience,
+            min_lr=config.min_lr,
+        )
+        stale_epochs = 0
+
+        print(
+            "Starting plateau training "
+            f"optimizer={config.optimizer_name} "
+            f"lr={config.learning_rate} "
+            f"max_epochs={config.max_epochs}"
+        )
+
+        for epoch in range(1, config.max_epochs + 1):
+            train_loss = _run_epoch(
+                model,
+                train_loader,
+                criterion,
+                config.device,
+                optimizer=optimizer,
+                grad_clip_norm=config.grad_clip_norm,
             )
+            val_loss = _run_epoch(model, val_loader, criterion, config.device)
+            scheduler.step(val_loss)
 
-        if stale_epochs >= config.patience:
-            print(f"  early stopping triggered at epoch {epoch}")
-            break
+            current_lr = float(optimizer.param_groups[0]["lr"])
+            history["train_losses"].append(train_loss)
+            history["val_losses"].append(val_loss)
+            history["learning_rates"].append(current_lr)
+            epochs_completed += 1
+
+            if val_loss < history["best_val_loss"]:
+                history["best_val_loss"] = val_loss
+                best_state = deepcopy(model.state_dict())
+                stale_epochs = 0
+            else:
+                stale_epochs += 1
+
+            if epoch == 1 or epoch % 20 == 0:
+                print(
+                    f"  epoch {epoch:>4}/{config.max_epochs} "
+                    f"train={train_loss:.6f} "
+                    f"val={val_loss:.6f} "
+                    f"lr={current_lr:.6g}"
+                )
+
+            if stale_epochs >= config.patience:
+                print(f"  early stopping triggered at epoch {epoch}")
+                break
+    else:
+        raise ValueError(f"Unsupported training strategy: {config.training_strategy}")
 
     model.load_state_dict(best_state)
-    history["epochs_completed"] = len(history["train_losses"])
+    history["epochs_completed"] = epochs_completed
     return history
 
 
 def optimizer_run_name(config: OptimizedGCNConfig) -> str:
+    if config.optimizer_name == "adam":
+        return "adam_control"
     if config.optimizer_name == "adamw":
         return "adamw"
     if config.nesterov:
