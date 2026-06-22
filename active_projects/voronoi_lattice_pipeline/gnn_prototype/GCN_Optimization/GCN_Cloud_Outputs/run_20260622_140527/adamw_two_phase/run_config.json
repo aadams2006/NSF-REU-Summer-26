@@ -1,0 +1,30 @@
+{
+  "optimizer_name": "adamw",
+  "learning_rate": null,
+  "weight_decay": 1e-05,
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "training_strategy": "two_phase",
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "max_epochs": 900,
+  "patience": 999,
+  "scheduler_factor": 0.5,
+  "scheduler_patience": 60,
+  "min_lr": 1e-05,
+  "grad_clip_norm": null,
+  "momentum": 0.0,
+  "nesterov": false,
+  "seed": 42,
+  "device": "cpu",
+  "prediction_metrics": {
+    "MSE": 7.07759681972675e-05,
+    "RMSE": 0.008412845428109772,
+    "MAE": 0.007526812609285116,
+    "Mean Relative Error (%)": 19.51263999938965,
+    "Max Relative Error (%)": 31.75423812866211,
+    "R2": -3.379577159881592
+  }
+}

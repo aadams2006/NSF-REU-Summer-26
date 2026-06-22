@@ -1,0 +1,30 @@
+{
+  "optimizer_name": "sgd",
+  "learning_rate": 0.005,
+  "weight_decay": 1e-05,
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "training_strategy": "plateau",
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "max_epochs": 2000,
+  "patience": 300,
+  "scheduler_factor": 0.5,
+  "scheduler_patience": 100,
+  "min_lr": 1e-05,
+  "grad_clip_norm": null,
+  "momentum": 0.9,
+  "nesterov": true,
+  "seed": 42,
+  "device": "cpu",
+  "prediction_metrics": {
+    "MSE": 0.00019364139006938785,
+    "RMSE": 0.013915508976296478,
+    "MAE": 0.013417618349194527,
+    "Mean Relative Error (%)": 35.73835754394531,
+    "Max Relative Error (%)": 44.852203369140625,
+    "R2": -10.982420921325684
+  }
+}
