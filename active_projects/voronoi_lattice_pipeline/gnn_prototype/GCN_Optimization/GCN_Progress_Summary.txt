@@ -1,0 +1,170 @@
+GCN Progress Summary
+====================
+
+Project
+-------
+Voronoi lattice stiffness GCN prototype
+
+Current baseline
+----------------
+Source:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs/run_20260618_131231/metrics_summary.csv
+
+Configuration:
+- 2-layer GCN
+- hidden_dim=24
+- node features: x, y
+- optimizer: Adam
+- two-phase schedule:
+  - lr=0.003 for 200 epochs
+  - lr=0.0005 for 700 epochs
+- weight_decay=1e-5
+
+Baseline metrics:
+- Validation RMSE: 0.004969
+- Validation R2: 0.8424
+- Test RMSE: 0.003818
+- Test R2: 0.9148
+
+
+Phase 1: Initial optimizer comparison
+-------------------------------------
+Source:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260622_132717/optimizer_comparison.csv
+
+What was tested:
+- AdamW
+- SGD + momentum
+- SGD + Nesterov
+
+Issue discovered:
+- This comparison changed more than just the optimizer.
+- It also changed hidden_dim, regularization, schedule behavior, clipping, and early stopping behavior.
+
+Outcome:
+- All tested optimizers performed much worse than baseline.
+- Conclusion: the first comparison was not a clean optimizer-only test.
+
+
+Phase 2: Fair optimizer comparison
+----------------------------------
+Source:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260622_140527/optimizer_comparison.csv
+
+What changed:
+- Restored hidden_dim=24
+- Restored weight_decay=1e-5
+- Added Adam control run
+- Matched Adam and AdamW to the same two-phase schedule
+- Gave SGD variants longer runs and patience
+
+Results:
+- Adam control reproduced baseline almost exactly
+- AdamW still underperformed badly
+- SGD + momentum and SGD + Nesterov remained far below baseline
+
+Key metrics:
+- Adam control test R2: 0.9148
+- AdamW test R2: 0.5101
+- Best SGD test R2: 0.1424
+
+Conclusion:
+- The training pipeline was correct.
+- Optimizer choice was not the main bottleneck.
+- Plain Adam remained the best training method among the tested optimizers.
+
+
+Phase 3: Weighted-edge update
+-----------------------------
+Code change:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/colab_gnn_stiffness_prototype.py
+
+What changed:
+- adjacency_area.csv is now used as weighted connectivity instead of binary edges only
+- edge_weight is passed into both GCNConv layers
+
+Latest results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260623_131618/optimizer_comparison.csv
+
+Observed impact:
+- Adam control test R2 changed from 0.9148 to 0.9113
+- Adam control prediction-set R2 improved from 0.3637 to 0.4336
+- AdamW test R2 improved from 0.5101 to 0.5560
+- SGD results were effectively unchanged
+
+Interpretation:
+- Weighted edges helped the out-of-distribution prediction set somewhat.
+- Weighted edges did not produce a meaningful gain on held-out test performance.
+- The main bottleneck still appears to be representation/model capacity, not optimizer selection.
+
+
+Current assessment
+------------------
+1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
+2. AdamW is consistently worse than Adam on this problem, even when matched fairly.
+3. SGD + momentum and SGD + Nesterov are not competitive for this task under the tested budgets.
+4. Weighted edges are worth keeping because they preserve real graph information and improved prediction-set behavior.
+5. Further progress is more likely to come from feature engineering, target handling, and architecture changes than from additional optimizer sweeps.
+
+
+Optimization methods to abandon
+-------------------------------
+Abandon as active search directions:
+- Broad SGD + momentum sweeps
+- Broad SGD + Nesterov sweeps
+
+Reason:
+- They are far below the Adam baseline on both validation and test metrics.
+- The best SGD result is still dramatically worse than baseline.
+
+De-prioritize heavily:
+- AdamW as the primary replacement for Adam
+
+Reason:
+- AdamW is better than SGD here, but still substantially worse than Adam.
+- It can remain as a low-priority sanity check after future representation changes, but it should not be the main focus now.
+
+
+Optimization methods to move forward with
+-----------------------------------------
+Primary method to keep:
+- Adam with the baseline two-phase schedule
+
+Secondary method to keep only as a limited comparison:
+- AdamW with the same schedule
+
+Reason:
+- Adam is the only method that consistently matches top performance.
+- AdamW may still be worth re-checking after larger modeling changes, but not as the central direction.
+
+
+Recommended next steps
+----------------------
+1. Keep weighted edges enabled.
+2. Add richer node features:
+   - node degree
+   - distance from specimen center
+   - boundary/interior indicator
+   - local edge-length summaries
+3. Add graph-level summary features:
+   - node count
+   - edge count
+   - density
+   - total or mean edge-weight statistics
+4. Try target normalization or log-target prediction if stiffness is strictly positive.
+5. Test a stronger architecture before more optimizer work:
+   - GIN
+   - GraphSAGE
+   - 3-layer residual GCN
+6. After representation changes, compare only:
+   - Adam baseline
+   - AdamW sanity check
+7. Use repeated seeds or repeated splits for serious comparisons.
+
+
+Bottom line
+-----------
+The optimizer investigation is largely settled for the current representation:
+- Keep Adam
+- Stop spending time on SGD and Nesterov
+- Move effort into features, target treatment, and architecture
