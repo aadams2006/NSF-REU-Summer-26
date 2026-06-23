@@ -73,12 +73,14 @@ class SimpleGNN(nn.Module):
         self.output = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, data: Data) -> torch.Tensor:
-        x = self.conv1(data.x, data.edge_index)
+        edge_weight = getattr(data, "edge_weight", None)
+
+        x = self.conv1(data.x, data.edge_index, edge_weight=edge_weight)
         x = self.bn1(x)
         x = F.relu(x)
         x = self.dropout(x)
 
-        x = self.conv2(x, data.edge_index)
+        x = self.conv2(x, data.edge_index, edge_weight=edge_weight)
         x = self.bn2(x)
         x = F.relu(x)
         x = self.dropout(x)
@@ -87,13 +89,20 @@ class SimpleGNN(nn.Module):
         return self.output(x)
 
 
-def _build_edge_index(adjacency_matrix: np.ndarray) -> torch.Tensor:
+def _build_graph_edges(adjacency_matrix: np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
     undirected_edges = np.argwhere(np.triu(adjacency_matrix, k=1) > 0)
     if undirected_edges.size == 0:
-        return torch.empty((2, 0), dtype=torch.long)
+        return (
+            torch.empty((2, 0), dtype=torch.long),
+            torch.empty((0,), dtype=torch.float32),
+        )
 
     bidirectional_edges = np.vstack((undirected_edges, undirected_edges[:, ::-1]))
-    return torch.from_numpy(bidirectional_edges.T.astype(np.int64)).contiguous()
+    edge_index = torch.from_numpy(bidirectional_edges.T.astype(np.int64)).contiguous()
+    edge_weights = adjacency_matrix[undirected_edges[:, 0], undirected_edges[:, 1]].astype(np.float32)
+    bidirectional_weights = np.concatenate((edge_weights, edge_weights))
+    edge_weight = torch.from_numpy(bidirectional_weights).contiguous()
+    return edge_index, edge_weight
 
 
 def load_lattice_sample(folder_path: str | Path) -> Data:
@@ -101,10 +110,12 @@ def load_lattice_sample(folder_path: str | Path) -> Data:
     node_features = pd.read_csv(folder / "node_features.csv", usecols=["x", "y"]).to_numpy(dtype=np.float32)
     adjacency_matrix = pd.read_csv(folder / "adjacency_area.csv", index_col=0).to_numpy()
     stiffness = float(pd.read_csv(folder / "lattice_stiffness.csv").iloc[0, 0])
+    edge_index, edge_weight = _build_graph_edges(adjacency_matrix)
 
     return Data(
         x=torch.from_numpy(node_features),
-        edge_index=_build_edge_index(adjacency_matrix),
+        edge_index=edge_index,
+        edge_weight=edge_weight,
         y=torch.tensor([stiffness], dtype=torch.float32),
     )
 
