@@ -1,1 +1,1 @@
-active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260622_140527
+active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260623_131618
