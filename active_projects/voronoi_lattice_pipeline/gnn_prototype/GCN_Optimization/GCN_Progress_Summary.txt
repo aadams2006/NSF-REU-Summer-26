@@ -146,6 +146,28 @@ Purpose:
 - Save per-seed outputs plus aggregate mean/std summaries.
 - Determine whether the richer-feature improvement is stable or split-dependent.
 
+Latest multi-seed results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Features_Multi_Seed/run_20260624_133418/multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Features_Multi_Seed/run_20260624_133418/multi_seed_aggregate.csv
+
+Observed multi-seed metrics:
+- Mean validation R2: 0.9414
+- Mean test R2: 0.9380
+- Mean test RMSE: 0.003086
+- Mean prediction-set R2: 0.4964
+- Test R2 range across seeds: 0.9339 to 0.9467
+
+Interpretation:
+- The best single richer-feature run was somewhat optimistic, which is expected.
+- However, the multi-seed mean still clearly outperforms the original baseline.
+- Original baseline test R2: 0.9148
+- Multi-seed richer-feature mean test R2: 0.9380
+- Original baseline test RMSE: 0.003818
+- Multi-seed richer-feature mean test RMSE: 0.003086
+- This confirms that the richer-feature improvement is real, not just a lucky seed.
+- The held-out test split is now fairly stable across seeds.
+- The prediction set still shows noticeably higher variance than the test split, so out-of-distribution robustness remains a weaker point.
+
 
 Current assessment
 ------------------
