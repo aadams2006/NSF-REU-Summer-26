@@ -120,6 +120,32 @@ Purpose:
 - Increase the amount of local geometric and connectivity information available to the GCN without regenerating data.
 - Shift the next round of improvement toward representation learning rather than optimizer tuning.
 
+Latest richer-feature single-run result:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Features/run_20260624_130608/metrics_summary.csv
+
+Observed impact versus the original baseline:
+- Validation R2 improved from 0.8424 to 0.9386
+- Test R2 improved from 0.9148 to 0.9403
+- Test RMSE improved from 0.003818 to 0.003197
+- Test MAE improved from 0.003003 to 0.002448
+
+Interpretation:
+- Richer node features produced a meaningful improvement.
+- This is the strongest result so far.
+- The previous ceiling was not absolute; it was largely a representation ceiling.
+- The next requirement is robustness validation across multiple seeds rather than more optimizer work.
+
+
+Phase 5: Multi-seed validation setup
+------------------------------------
+Artifact:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Richer_Features_Multi_Seed.ipynb
+
+Purpose:
+- Re-run the richer-feature Adam baseline across multiple seeds in one Colab workflow.
+- Save per-seed outputs plus aggregate mean/std summaries.
+- Determine whether the richer-feature improvement is stable or split-dependent.
+
 
 Current assessment
 ------------------
