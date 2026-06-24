@@ -1,0 +1,15 @@
+{
+  "seed": 202,
+  "feature_mode": "weighted_edges_plus_derived_node_features",
+  "input_dim": 9,
+  "epochs_completed": 900,
+  "best_val_loss": 9.180167407976115e-06,
+  "prediction_metrics": {
+    "MSE": 7.599192940688226e-06,
+    "RMSE": 0.0027566633709410777,
+    "MAE": 0.0023370685521513224,
+    "Mean Relative Error (%)": 6.397114276885986,
+    "Max Relative Error (%)": 15.351875305175781,
+    "R2": 0.5297662019729614
+  }
+}
