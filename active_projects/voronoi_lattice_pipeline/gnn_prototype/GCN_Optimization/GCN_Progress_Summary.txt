@@ -98,6 +98,29 @@ Interpretation:
 - The main bottleneck still appears to be representation/model capacity, not optimizer selection.
 
 
+Phase 4: Richer node features from existing datasets
+----------------------------------------------------
+Code change:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/colab_gnn_stiffness_prototype.py
+
+What changed:
+- No new lattice sets were required.
+- Node features are now derived at load time from the existing node coordinates and adjacency matrix.
+- The model still reads the same dataset files, but each node now includes:
+  - x, y
+  - node degree
+  - weighted degree
+  - distance from specimen center
+  - boundary indicator
+  - mean incident edge length
+  - max incident edge length
+  - mean incident edge weight
+
+Purpose:
+- Increase the amount of local geometric and connectivity information available to the GCN without regenerating data.
+- Shift the next round of improvement toward representation learning rather than optimizer tuning.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.

@@ -105,12 +105,57 @@ def _build_graph_edges(adjacency_matrix: np.ndarray) -> tuple[torch.Tensor, torc
     return edge_index, edge_weight
 
 
+def _derive_node_features(node_coordinates: np.ndarray, adjacency_matrix: np.ndarray) -> np.ndarray:
+    connectivity = (adjacency_matrix > 0).astype(np.float32)
+    np.fill_diagonal(connectivity, 0.0)
+
+    degree = connectivity.sum(axis=1, keepdims=True)
+    weighted_degree = adjacency_matrix.sum(axis=1, keepdims=True).astype(np.float32)
+
+    centroid = node_coordinates.mean(axis=0, keepdims=True)
+    centered_coordinates = node_coordinates - centroid
+    center_distance = np.linalg.norm(centered_coordinates, axis=1, keepdims=True).astype(np.float32)
+
+    x_coords = node_coordinates[:, 0]
+    y_coords = node_coordinates[:, 1]
+    boundary_mask = (
+        np.isclose(x_coords, x_coords.min())
+        | np.isclose(x_coords, x_coords.max())
+        | np.isclose(y_coords, y_coords.min())
+        | np.isclose(y_coords, y_coords.max())
+    ).astype(np.float32)[:, None]
+
+    coordinate_deltas = node_coordinates[:, None, :] - node_coordinates[None, :, :]
+    pairwise_distances = np.linalg.norm(coordinate_deltas, axis=2).astype(np.float32)
+    incident_distances = pairwise_distances * connectivity
+
+    safe_degree = np.clip(degree, a_min=1.0, a_max=None)
+    mean_incident_distance = incident_distances.sum(axis=1, keepdims=True) / safe_degree
+    max_incident_distance = incident_distances.max(axis=1, keepdims=True)
+    mean_incident_weight = weighted_degree / safe_degree
+
+    return np.concatenate(
+        (
+            node_coordinates.astype(np.float32),
+            degree.astype(np.float32),
+            weighted_degree,
+            center_distance,
+            boundary_mask,
+            mean_incident_distance.astype(np.float32),
+            max_incident_distance.astype(np.float32),
+            mean_incident_weight.astype(np.float32),
+        ),
+        axis=1,
+    )
+
+
 def load_lattice_sample(folder_path: str | Path) -> Data:
     folder = Path(folder_path)
-    node_features = pd.read_csv(folder / "node_features.csv", usecols=["x", "y"]).to_numpy(dtype=np.float32)
+    node_coordinates = pd.read_csv(folder / "node_features.csv", usecols=["x", "y"]).to_numpy(dtype=np.float32)
     adjacency_matrix = pd.read_csv(folder / "adjacency_area.csv", index_col=0).to_numpy()
     stiffness = float(pd.read_csv(folder / "lattice_stiffness.csv").iloc[0, 0])
     edge_index, edge_weight = _build_graph_edges(adjacency_matrix)
+    node_features = _derive_node_features(node_coordinates, adjacency_matrix)
 
     return Data(
         x=torch.from_numpy(node_features),
