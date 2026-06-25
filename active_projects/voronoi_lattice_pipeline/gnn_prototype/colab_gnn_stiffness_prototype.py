@@ -63,14 +63,21 @@ class TrainingConfig:
 
 
 class SimpleGNN(nn.Module):
-    def __init__(self, input_dim: int, hidden_dim: int = 32, output_dim: int = 1) -> None:
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int = 32,
+        output_dim: int = 1,
+        graph_feature_dim: int = 0,
+    ) -> None:
         super().__init__()
+        self.graph_feature_dim = graph_feature_dim
         self.conv1 = GCNConv(input_dim, hidden_dim)
         self.bn1 = nn.BatchNorm1d(hidden_dim)
         self.conv2 = GCNConv(hidden_dim, hidden_dim)
         self.bn2 = nn.BatchNorm1d(hidden_dim)
         self.dropout = nn.Dropout(0.1)
-        self.output = nn.Linear(hidden_dim, output_dim)
+        self.output = nn.Linear(hidden_dim + graph_feature_dim, output_dim)
 
     def forward(self, data: Data) -> torch.Tensor:
         edge_weight = getattr(data, "edge_weight", None)
@@ -86,6 +93,11 @@ class SimpleGNN(nn.Module):
         x = self.dropout(x)
 
         x = global_mean_pool(x, data.batch)
+        if self.graph_feature_dim > 0 and hasattr(data, "graph_attr"):
+            graph_attr = data.graph_attr
+            if graph_attr.dim() == 1:
+                graph_attr = graph_attr.unsqueeze(0)
+            x = torch.cat((x, graph_attr), dim=1)
         return self.output(x)
 
 
@@ -149,6 +161,49 @@ def _derive_node_features(node_coordinates: np.ndarray, adjacency_matrix: np.nda
     )
 
 
+def _derive_graph_features(node_coordinates: np.ndarray, adjacency_matrix: np.ndarray) -> np.ndarray:
+    connectivity = (adjacency_matrix > 0).astype(np.float32)
+    np.fill_diagonal(connectivity, 0.0)
+
+    node_count = float(node_coordinates.shape[0])
+    undirected_edges = np.argwhere(np.triu(adjacency_matrix, k=1) > 0)
+    edge_count = float(undirected_edges.shape[0])
+    density = 0.0 if node_count <= 1 else float(2.0 * edge_count / (node_count * (node_count - 1.0)))
+
+    if undirected_edges.size == 0:
+        edge_weights = np.empty((0,), dtype=np.float32)
+    else:
+        edge_weights = adjacency_matrix[undirected_edges[:, 0], undirected_edges[:, 1]].astype(np.float32)
+
+    total_edge_weight = float(edge_weights.sum()) if edge_weights.size else 0.0
+    mean_edge_weight = float(edge_weights.mean()) if edge_weights.size else 0.0
+    std_edge_weight = float(edge_weights.std()) if edge_weights.size else 0.0
+
+    degree = connectivity.sum(axis=1).astype(np.float32)
+    weighted_degree = adjacency_matrix.sum(axis=1).astype(np.float32)
+
+    centroid = node_coordinates.mean(axis=0, keepdims=True)
+    center_distance = np.linalg.norm(node_coordinates - centroid, axis=1).astype(np.float32)
+
+    return np.asarray(
+        [
+            node_count,
+            edge_count,
+            density,
+            total_edge_weight,
+            mean_edge_weight,
+            std_edge_weight,
+            float(degree.mean()),
+            float(degree.std()),
+            float(weighted_degree.mean()),
+            float(weighted_degree.std()),
+            float(center_distance.mean()),
+            float(center_distance.std()),
+        ],
+        dtype=np.float32,
+    )
+
+
 def load_lattice_sample(folder_path: str | Path) -> Data:
     folder = Path(folder_path)
     node_coordinates = pd.read_csv(folder / "node_features.csv", usecols=["x", "y"]).to_numpy(dtype=np.float32)
@@ -156,11 +211,13 @@ def load_lattice_sample(folder_path: str | Path) -> Data:
     stiffness = float(pd.read_csv(folder / "lattice_stiffness.csv").iloc[0, 0])
     edge_index, edge_weight = _build_graph_edges(adjacency_matrix)
     node_features = _derive_node_features(node_coordinates, adjacency_matrix)
+    graph_features = _derive_graph_features(node_coordinates, adjacency_matrix)
 
     return Data(
         x=torch.from_numpy(node_features),
         edge_index=edge_index,
         edge_weight=edge_weight,
+        graph_attr=torch.from_numpy(graph_features).view(1, -1),
         y=torch.tensor([stiffness], dtype=torch.float32),
     )
 
@@ -220,12 +277,20 @@ def normalize_feature_splits(
     test_data: list[Data],
 ) -> StandardScaler:
     train_features = torch.cat([sample.x for sample in train_data], dim=0).numpy()
+    graph_train_features = torch.cat([sample.graph_attr for sample in train_data], dim=0).numpy()
+
     scaler = StandardScaler().fit(train_features)
+    graph_scaler = StandardScaler().fit(graph_train_features)
 
     for split in (train_data, val_data, test_data):
         for sample in split:
             transformed = scaler.transform(sample.x.numpy()).astype(np.float32)
             sample.x = torch.from_numpy(transformed)
+            graph_transformed = graph_scaler.transform(sample.graph_attr.numpy()).astype(np.float32)
+            sample.graph_attr = torch.from_numpy(graph_transformed)
+
+    scaler.graph_mean_ = graph_scaler.mean_
+    scaler.graph_scale_ = graph_scaler.scale_
 
     return scaler
 
@@ -429,6 +494,12 @@ def predict_on_directory(
     for sample in prediction_data:
         transformed = scaler.transform(sample.x.numpy()).astype(np.float32)
         sample.x = torch.from_numpy(transformed)
+        if hasattr(scaler, "graph_mean_") and hasattr(scaler, "graph_scale_"):
+            graph_mean = np.asarray(scaler.graph_mean_, dtype=np.float32)
+            graph_scale = np.asarray(scaler.graph_scale_, dtype=np.float32)
+            graph_scale = np.where(graph_scale == 0.0, 1.0, graph_scale)
+            graph_transformed = ((sample.graph_attr.numpy() - graph_mean) / graph_scale).astype(np.float32)
+            sample.graph_attr = torch.from_numpy(graph_transformed)
 
     loader = DataLoader(prediction_data, batch_size=batch_size, shuffle=False)
     predictions, ground_truth, metrics = evaluate_model(model, loader, device=device)
@@ -463,6 +534,8 @@ def save_run_artifacts(
             "model_state_dict": model.state_dict(),
             "scaler_mean": scaler.mean_,
             "scaler_scale": scaler.scale_,
+            "graph_scaler_mean": getattr(scaler, "graph_mean_", None),
+            "graph_scaler_scale": getattr(scaler, "graph_scale_", None),
             "history": history,
             "metrics": metrics_by_split,
         },
@@ -491,7 +564,11 @@ def main() -> None:
         batch_size=config.batch_size,
     )
 
-    model = SimpleGNN(input_dim=train_data[0].x.shape[1], hidden_dim=config.hidden_dim)
+    model = SimpleGNN(
+        input_dim=train_data[0].x.shape[1],
+        hidden_dim=config.hidden_dim,
+        graph_feature_dim=train_data[0].graph_attr.shape[1],
+    )
     history = train_model(model, train_loader, val_loader, config)
 
     metrics_by_split: dict[str, dict[str, float]] = {}

@@ -280,7 +280,11 @@ def run_experiment(config: OptimizedGCNConfig) -> Path:
         batch_size=config.batch_size,
     )
 
-    model = SimpleGNN(input_dim=train_data[0].x.shape[1], hidden_dim=config.hidden_dim)
+    model = SimpleGNN(
+        input_dim=train_data[0].x.shape[1],
+        hidden_dim=config.hidden_dim,
+        graph_feature_dim=train_data[0].graph_attr.shape[1],
+    )
     history = train_optimized_model(model, train_loader, val_loader, config)
 
     metrics_by_split: dict[str, dict[str, float]] = {}

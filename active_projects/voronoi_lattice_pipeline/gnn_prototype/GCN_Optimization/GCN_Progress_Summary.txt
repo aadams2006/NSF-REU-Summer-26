@@ -169,6 +169,32 @@ Interpretation:
 - The prediction set still shows noticeably higher variance than the test split, so out-of-distribution robustness remains a weaker point.
 
 
+Phase 6: Graph-level summary feature integration
+------------------------------------------------
+Code changes:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/colab_gnn_stiffness_prototype.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Richer_Features.ipynb
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Richer_Features_Multi_Seed.ipynb
+
+What changed:
+- Added graph-level summary features derived from the existing lattice files at load time.
+- No new lattice sets were required.
+- Each graph now includes summary features such as:
+  - node count
+  - edge count
+  - graph density
+  - total / mean / std edge weight
+  - degree mean / std
+  - weighted degree mean / std
+  - center-distance mean / std
+- The model now concatenates graph-level features after graph pooling before the output layer.
+- Node features and graph-level features are both normalized using training-split statistics.
+
+Purpose:
+- Improve graph-level reasoning and reduce the remaining robustness gap on the prediction set.
+- Build on the richer node-feature improvement without changing the underlying dataset files.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
