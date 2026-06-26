@@ -194,6 +194,47 @@ Purpose:
 - Improve graph-level reasoning and reduce the remaining robustness gap on the prediction set.
 - Build on the richer node-feature improvement without changing the underlying dataset files.
 
+Latest graph-feature single-run result:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features/run_20260625_130714/metrics_summary.csv
+
+Observed single-run impact versus the richer-node-feature model:
+- Test R2 improved from 0.9403 to 0.9526
+- Test RMSE improved from 0.003197 to 0.002849
+- Test MAE improved from 0.002448 to 0.002250
+
+Latest graph-feature multi-seed results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Multi_Seed/run_20260625_133232/multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Multi_Seed/run_20260625_133232/multi_seed_aggregate.csv
+
+Observed multi-seed metrics:
+- Mean validation R2: 0.9410
+- Mean test R2: 0.9411
+- Mean test RMSE: 0.003003
+- Mean prediction-set R2: 0.4035
+
+Interpretation:
+- Graph-level summary features produced a real but incremental improvement on the held-out test split.
+- Mean test R2 improved from 0.9380 to 0.9411 compared with the richer-node-feature multi-seed baseline.
+- Mean test RMSE improved from 0.003086 to 0.003003.
+- However, prediction-set performance moved in the wrong direction on average.
+- Mean prediction-set R2 declined from 0.4964 to 0.4035.
+- This suggests the graph features help in-distribution fit but do not yet solve out-of-distribution robustness.
+
+
+Phase 7: Target normalization experiment setup
+----------------------------------------------
+Artifact:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Richer_Graph_Features_Target_Normalized.ipynb
+
+Purpose:
+- Combine all confirmed positive improvements so far:
+  - Adam baseline schedule
+  - weighted edges
+  - richer node features
+  - graph-level summary features
+- Add target normalization as the next highest-value intervention.
+- Test whether scaling the regression target improves robustness on the prediction set while preserving or improving held-out test accuracy.
+
 
 Current assessment
 ------------------
