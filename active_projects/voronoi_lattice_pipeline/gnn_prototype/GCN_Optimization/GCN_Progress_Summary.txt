@@ -236,13 +236,54 @@ Purpose:
 - Test whether scaling the regression target improves robustness on the prediction set while preserving or improving held-out test accuracy.
 
 
+Phase 8: Target normalization multi-seed validation
+---------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Richer_Graph_Features_Target_Normalized.ipynb
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Richer_Graph_Features_Target_Normalized_Multi_Seed.ipynb
+
+Latest target-normalized single-run result:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Target_Normalized/run_20260626_025653/metrics_summary.csv
+
+Observed single-run impact versus the graph-feature model:
+- Test R2 improved from 0.9526 to 0.9549
+- Test RMSE improved from 0.002849 to 0.002779
+
+Latest target-normalized multi-seed results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Target_Normalized_Multi_Seed/run_20260626_123030/multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Target_Normalized_Multi_Seed/run_20260626_123030/multi_seed_aggregate.csv
+
+Observed multi-seed metrics:
+- Mean validation R2: 0.9416
+- Mean test R2: 0.9447
+- Mean test RMSE: 0.002908
+- Mean prediction-set R2: 0.4459
+- Test R2 range across seeds: 0.9384 to 0.9549
+
+Interpretation:
+- Target normalization produced a real but modest improvement on the held-out test split.
+- Mean test R2 improved from 0.9411 to 0.9447 compared with the richer-graph-feature multi-seed run.
+- Mean test RMSE improved from 0.003003 to 0.002908.
+- Prediction-set performance also improved versus the richer-graph-feature multi-seed run.
+- Mean prediction-set R2 increased from 0.4035 to 0.4459.
+- However, target normalization still does not exceed the richer-node-feature multi-seed prediction-set mean of 0.4964.
+- This makes the target-normalized richer-graph configuration the current best average test-performance setup, but not the best prediction-set generalization setup.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
 2. AdamW is consistently worse than Adam on this problem, even when matched fairly.
 3. SGD + momentum and SGD + Nesterov are not competitive for this task under the tested budgets.
 4. Weighted edges are worth keeping because they preserve real graph information and improved prediction-set behavior.
-5. Further progress is more likely to come from feature engineering, target handling, and architecture changes than from additional optimizer sweeps.
+5. Richer node features are the clearest representation improvement and remain the strongest configuration for mean prediction-set R2.
+6. Graph-level summary features plus target normalization now provide the best mean held-out test accuracy:
+   - Mean test R2: 0.9447
+   - Mean test RMSE: 0.002908
+7. There is now a measurable tradeoff between in-distribution accuracy and prediction-set generalization:
+   - Best mean test R2: richer graph features + target normalization
+   - Best mean prediction-set R2: richer node features only
+8. Further progress is more likely to come from architecture or objective changes than from additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -279,25 +320,19 @@ Reason:
 Recommended next steps
 ----------------------
 1. Keep weighted edges enabled.
-2. Add richer node features:
-   - node degree
-   - distance from specimen center
-   - boundary/interior indicator
-   - local edge-length summaries
-3. Add graph-level summary features:
-   - node count
-   - edge count
-   - density
-   - total or mean edge-weight statistics
-4. Try target normalization or log-target prediction if stiffness is strictly positive.
-5. Test a stronger architecture before more optimizer work:
+2. Keep richer node features as the default representation baseline for future comparisons.
+3. Keep graph-level summary features and target normalization as the current best test-accuracy configuration.
+4. Focus the next experiment on architecture or objective changes rather than more optimizer work:
    - GIN
    - GraphSAGE
    - 3-layer residual GCN
-6. After representation changes, compare only:
+5. Consider objective-level changes that directly target generalization:
+   - alternate target scaling only if justified by target distribution
+   - split strategy review if prediction-set mismatch is structural
+6. After architecture or objective changes, compare only:
    - Adam baseline
    - AdamW sanity check
-7. Use repeated seeds or repeated splits for serious comparisons.
+7. Use repeated seeds for any serious promotion decision.
 
 
 Bottom line
@@ -305,4 +340,6 @@ Bottom line
 The optimizer investigation is largely settled for the current representation:
 - Keep Adam
 - Stop spending time on SGD and Nesterov
-- Move effort into features, target treatment, and architecture
+- Keep richer node features as the strongest prediction-set baseline
+- Keep richer graph features + target normalization as the strongest mean test-accuracy configuration
+- Move effort next into architecture and generalization-focused objective design
