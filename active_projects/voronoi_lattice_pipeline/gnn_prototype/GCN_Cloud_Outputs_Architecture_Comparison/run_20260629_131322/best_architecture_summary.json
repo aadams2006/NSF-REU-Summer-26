@@ -1,0 +1,40 @@
+{
+  "best_test_architecture": {
+    "Architecture": "GCN-3",
+    "Architecture_Key": "gcn3",
+    "Seed": 42,
+    "Input_Dim": 9,
+    "Graph_Feature_Dim": 12,
+    "Epochs_Completed": 900,
+    "Best_Val_Loss": 0.06460385143756867,
+    "Validation_RMSE": 0.003088990123204455,
+    "Validation_MAE": 0.0024814335629343987,
+    "Validation_R2": 0.9390818476676941,
+    "Test_RMSE": 0.0027726635440147593,
+    "Test_MAE": 0.002178695984184742,
+    "Test_R2": 0.9550856351852417,
+    "Prediction_RMSE": 0.002982234739829534,
+    "Prediction_MAE": 0.0024501858279109,
+    "Prediction_R2": 0.44966137409210205,
+    "Output_Dir": "/content/drive/MyDrive/GCN_Cloud_Outputs_Architecture_Comparison/run_20260629_131322/per_model/gcn3/run_20260629_140045"
+  },
+  "best_prediction_architecture": {
+    "Architecture": "GCN-3",
+    "Architecture_Key": "gcn3",
+    "Seed": 42,
+    "Input_Dim": 9,
+    "Graph_Feature_Dim": 12,
+    "Epochs_Completed": 900,
+    "Best_Val_Loss": 0.06460385143756867,
+    "Validation_RMSE": 0.003088990123204455,
+    "Validation_MAE": 0.0024814335629343987,
+    "Validation_R2": 0.9390818476676941,
+    "Test_RMSE": 0.0027726635440147593,
+    "Test_MAE": 0.002178695984184742,
+    "Test_R2": 0.9550856351852417,
+    "Prediction_RMSE": 0.002982234739829534,
+    "Prediction_MAE": 0.0024501858279109,
+    "Prediction_R2": 0.44966137409210205,
+    "Output_Dir": "/content/drive/MyDrive/GCN_Cloud_Outputs_Architecture_Comparison/run_20260629_131322/per_model/gcn3/run_20260629_140045"
+  }
+}

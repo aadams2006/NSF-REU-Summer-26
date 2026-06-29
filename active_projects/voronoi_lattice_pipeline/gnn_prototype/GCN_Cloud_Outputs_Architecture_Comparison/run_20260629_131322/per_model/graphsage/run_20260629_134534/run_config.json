@@ -1,0 +1,27 @@
+{
+  "architecture_name": "graphsage",
+  "architecture_label": "GraphSAGE",
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "patience": 999,
+  "weight_decay": 1e-05,
+  "seed": 42,
+  "device": "cpu",
+  "output_group": "architecture_comparison",
+  "display_name": "GraphSAGE",
+  "input_dim": 9,
+  "graph_feature_dim": 12,
+  "prediction_metrics": {
+    "MSE": 9.897096788336057e-06,
+    "RMSE": 0.0031459651600639284,
+    "MAE": 0.0028442288748919964,
+    "Mean Relative Error (%)": 7.830643653869629,
+    "Max Relative Error (%)": 16.0677490234375,
+    "R2": 0.3875732421875
+  }
+}

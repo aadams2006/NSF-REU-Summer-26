@@ -1,0 +1,27 @@
+{
+  "architecture_name": "gin",
+  "architecture_label": "GIN",
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "patience": 999,
+  "weight_decay": 1e-05,
+  "seed": 42,
+  "device": "cpu",
+  "output_group": "architecture_comparison",
+  "display_name": "GIN",
+  "input_dim": 9,
+  "graph_feature_dim": 12,
+  "prediction_metrics": {
+    "MSE": 9.071932254300918e-06,
+    "RMSE": 0.0030119648494464405,
+    "MAE": 0.0026487766299396753,
+    "Mean Relative Error (%)": 7.339076519012451,
+    "Max Relative Error (%)": 15.325170516967773,
+    "R2": 0.43863391876220703
+  }
+}
