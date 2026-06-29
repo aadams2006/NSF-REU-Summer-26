@@ -494,9 +494,13 @@ def run_architecture_experiment(
 ) -> dict[str, object]:
     set_seed(config.seed)
 
-    default_train_root, default_predict_root = default_data_roots()
-    train_root = Path(train_root) if train_root is not None else default_train_root
-    predict_root = Path(predict_root) if predict_root is not None else default_predict_root
+    if train_root is None or predict_root is None:
+        default_train_root, default_predict_root = default_data_roots()
+        train_root = Path(train_root) if train_root is not None else default_train_root
+        predict_root = Path(predict_root) if predict_root is not None else default_predict_root
+    else:
+        train_root = Path(train_root)
+        predict_root = Path(predict_root)
 
     dataset = load_lattice_dataset(train_root)
     train_data, val_data, test_data = split_dataset(dataset, seed=config.seed)
