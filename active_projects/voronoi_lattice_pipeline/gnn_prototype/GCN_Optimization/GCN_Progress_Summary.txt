@@ -270,6 +270,58 @@ Interpretation:
 - This makes the target-normalized richer-graph configuration the current best average test-performance setup, but not the best prediction-set generalization setup.
 
 
+Phase 9: Architecture comparison
+--------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/architecture_comparison_runner.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_architecture_gin.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_architecture_graphsage.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_architecture_gcn3.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Architecture_Comparison.ipynb
+
+Purpose:
+- Compare architecture-level changes while keeping the current best positive pipeline fixed:
+  - Adam baseline two-phase schedule
+  - weighted edges
+  - richer node features
+  - graph-level summary features
+  - target normalization
+- Benchmark:
+  - GCN-2 control
+  - GIN
+  - GraphSAGE
+  - 3-layer GCN
+
+Latest architecture comparison result:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Architecture_Comparison/run_20260629_131322/architecture_comparison_summary.csv
+
+Observed single-seed metrics:
+- GCN-2 control:
+  - Test R2: 0.9549
+  - Test RMSE: 0.002779
+  - Prediction-set R2: 0.4011
+- GCN-3:
+  - Test R2: 0.9551
+  - Test RMSE: 0.002773
+  - Prediction-set R2: 0.4497
+- GraphSAGE:
+  - Test R2: 0.9538
+  - Test RMSE: 0.002812
+  - Prediction-set R2: 0.3876
+- GIN:
+  - Test R2: 0.9508
+  - Test RMSE: 0.002901
+  - Prediction-set R2: 0.4386
+
+Interpretation:
+- Changing the architecture family did not produce a meaningful held-out test breakthrough.
+- The 3-layer GCN was the best model in this single-seed comparison, but its test improvement over the 2-layer control was extremely small.
+- The 3-layer GCN also improved prediction-set R2 versus the control on this seed.
+- However, this architecture gain is still too small to treat as confirmed without multi-seed validation.
+- GraphSAGE and GIN did not provide a compelling improvement over the current control configuration.
+- This suggests the current feature pipeline is already doing most of the available work, and simple architecture swaps are not enough to break through the current performance ceiling.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -283,7 +335,9 @@ Current assessment
 7. There is now a measurable tradeoff between in-distribution accuracy and prediction-set generalization:
    - Best mean test R2: richer graph features + target normalization
    - Best mean prediction-set R2: richer node features only
-8. Further progress is more likely to come from architecture or objective changes than from additional optimizer sweeps.
+8. The first architecture comparison did not reveal a strong new winner.
+9. The 3-layer GCN is the only architecture variant that showed enough signal to justify one more multi-seed check.
+10. Further progress is now more likely to come from residual/deeper GCN variants, objective changes, or generalization strategy changes than from broad architecture-family swaps or additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -322,17 +376,22 @@ Recommended next steps
 1. Keep weighted edges enabled.
 2. Keep richer node features as the default representation baseline for future comparisons.
 3. Keep graph-level summary features and target normalization as the current best test-accuracy configuration.
-4. Focus the next experiment on architecture or objective changes rather than more optimizer work:
+4. Run a multi-seed comparison of only:
+   - GCN-2 control
+   - GCN-3
+5. De-prioritize as active architecture directions:
    - GIN
    - GraphSAGE
-   - 3-layer residual GCN
-5. Consider objective-level changes that directly target generalization:
+6. If GCN-3 does not show a real multi-seed gain, shift the next architecture work toward:
+   - residual 3-layer GCN
+   - skip-connected deeper GCN variants
+7. Consider objective-level changes that directly target generalization:
    - alternate target scaling only if justified by target distribution
    - split strategy review if prediction-set mismatch is structural
-6. After architecture or objective changes, compare only:
+8. After architecture or objective changes, compare only:
    - Adam baseline
    - AdamW sanity check
-7. Use repeated seeds for any serious promotion decision.
+9. Use repeated seeds for any serious promotion decision.
 
 
 Bottom line
@@ -342,4 +401,6 @@ The optimizer investigation is largely settled for the current representation:
 - Stop spending time on SGD and Nesterov
 - Keep richer node features as the strongest prediction-set baseline
 - Keep richer graph features + target normalization as the strongest mean test-accuracy configuration
-- Move effort next into architecture and generalization-focused objective design
+- De-prioritize GIN and GraphSAGE after the first architecture comparison
+- Give GCN-3 one multi-seed validation pass before promoting it
+- Move effort next into residual/deeper GCN design and generalization-focused objective design
