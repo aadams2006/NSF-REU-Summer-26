@@ -1,0 +1,27 @@
+{
+  "architecture_name": "gcn3",
+  "architecture_label": "GCN-3",
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "patience": 999,
+  "weight_decay": 1e-05,
+  "seed": 202,
+  "device": "cpu",
+  "output_group": "architecture_comparison_multi_seed",
+  "display_name": "GCN-3",
+  "input_dim": 9,
+  "graph_feature_dim": 12,
+  "prediction_metrics": {
+    "MSE": 9.122926712734625e-06,
+    "RMSE": 0.0030204183009534665,
+    "MAE": 0.002572491532191634,
+    "Mean Relative Error (%)": 7.0513434410095215,
+    "Max Relative Error (%)": 16.610891342163086,
+    "R2": 0.4354783892631531
+  }
+}

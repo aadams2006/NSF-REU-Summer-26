@@ -1,0 +1,27 @@
+{
+  "architecture_name": "gcn2_control",
+  "architecture_label": "GCN-2 Control (Best Prior)",
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "patience": 999,
+  "weight_decay": 1e-05,
+  "seed": 101,
+  "device": "cpu",
+  "output_group": "architecture_comparison_multi_seed",
+  "display_name": "GCN-2 Control (Best Prior)",
+  "input_dim": 9,
+  "graph_feature_dim": 12,
+  "prediction_metrics": {
+    "MSE": 7.451658348145429e-06,
+    "RMSE": 0.0027297725817630723,
+    "MAE": 0.002282471163198352,
+    "Mean Relative Error (%)": 6.368034839630127,
+    "Max Relative Error (%)": 15.915229797363281,
+    "R2": 0.5388955473899841
+  }
+}
