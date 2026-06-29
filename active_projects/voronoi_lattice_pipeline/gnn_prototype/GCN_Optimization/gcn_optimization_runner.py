@@ -16,7 +16,7 @@ MODULE_DIR = Path(__file__).resolve().parents[1]
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 
-from colab_gnn_stiffness_prototype import (  # noqa: E402
+from active_projects.voronoi_lattice_pipeline.gnn_prototype.GCN_Optimization.colab_gnn_stiffness_prototype import (  # noqa: E402
     SimpleGNN,
     create_data_loaders,
     default_data_roots,
@@ -312,8 +312,8 @@ def run_experiment(config: OptimizedGCNConfig) -> Path:
     output_dir = (
         find_pipeline_root()
         / "gnn_prototype"
-        / "GCN_Optimization"
         / "outputs"
+        / "optimization"
         / run_name
         / f"run_{timestamp}"
     )

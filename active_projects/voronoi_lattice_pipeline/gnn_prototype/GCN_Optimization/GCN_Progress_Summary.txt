@@ -8,7 +8,7 @@ Voronoi lattice stiffness GCN prototype
 Current baseline
 ----------------
 Source:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs/run_20260618_131231/metrics_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/baseline/run_20260618_131231/metrics_summary.csv
 
 Configuration:
 - 2-layer GCN
@@ -30,7 +30,7 @@ Baseline metrics:
 Phase 1: Initial optimizer comparison
 -------------------------------------
 Source:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260622_132717/optimizer_comparison.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/optimization/run_20260622_132717/optimizer_comparison.csv
 
 What was tested:
 - AdamW
@@ -49,7 +49,7 @@ Outcome:
 Phase 2: Fair optimizer comparison
 ----------------------------------
 Source:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260622_140527/optimizer_comparison.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/optimization/run_20260622_140527/optimizer_comparison.csv
 
 What changed:
 - Restored hidden_dim=24
@@ -84,7 +84,7 @@ What changed:
 - edge_weight is passed into both GCNConv layers
 
 Latest results:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/GCN_Cloud_Outputs/run_20260623_131618/optimizer_comparison.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/optimization/run_20260623_131618/optimizer_comparison.csv
 
 Observed impact:
 - Adam control test R2 changed from 0.9148 to 0.9113
@@ -121,7 +121,7 @@ Purpose:
 - Shift the next round of improvement toward representation learning rather than optimizer tuning.
 
 Latest richer-feature single-run result:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Features/run_20260624_130608/metrics_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_features/run_20260624_130608/metrics_summary.csv
 
 Observed impact versus the original baseline:
 - Validation R2 improved from 0.8424 to 0.9386
@@ -147,8 +147,8 @@ Purpose:
 - Determine whether the richer-feature improvement is stable or split-dependent.
 
 Latest multi-seed results:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Features_Multi_Seed/run_20260624_133418/multi_seed_summary.csv
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Features_Multi_Seed/run_20260624_133418/multi_seed_aggregate.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_features_multi_seed/run_20260624_133418/multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_features_multi_seed/run_20260624_133418/multi_seed_aggregate.csv
 
 Observed multi-seed metrics:
 - Mean validation R2: 0.9414
@@ -195,7 +195,7 @@ Purpose:
 - Build on the richer node-feature improvement without changing the underlying dataset files.
 
 Latest graph-feature single-run result:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features/run_20260625_130714/metrics_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_graph_features/run_20260625_130714/metrics_summary.csv
 
 Observed single-run impact versus the richer-node-feature model:
 - Test R2 improved from 0.9403 to 0.9526
@@ -203,8 +203,8 @@ Observed single-run impact versus the richer-node-feature model:
 - Test MAE improved from 0.002448 to 0.002250
 
 Latest graph-feature multi-seed results:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Multi_Seed/run_20260625_133232/multi_seed_summary.csv
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Multi_Seed/run_20260625_133232/multi_seed_aggregate.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_graph_features_multi_seed/run_20260625_133232/multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_graph_features_multi_seed/run_20260625_133232/multi_seed_aggregate.csv
 
 Observed multi-seed metrics:
 - Mean validation R2: 0.9410
@@ -243,15 +243,15 @@ Artifacts:
 - active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Richer_Graph_Features_Target_Normalized_Multi_Seed.ipynb
 
 Latest target-normalized single-run result:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Target_Normalized/run_20260626_025653/metrics_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_graph_features_target_normalized/run_20260626_025653/metrics_summary.csv
 
 Observed single-run impact versus the graph-feature model:
 - Test R2 improved from 0.9526 to 0.9549
 - Test RMSE improved from 0.002849 to 0.002779
 
 Latest target-normalized multi-seed results:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Target_Normalized_Multi_Seed/run_20260626_123030/multi_seed_summary.csv
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Richer_Graph_Features_Target_Normalized_Multi_Seed/run_20260626_123030/multi_seed_aggregate.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_graph_features_target_normalized_multi_seed/run_20260626_123030/multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/richer_graph_features_target_normalized_multi_seed/run_20260626_123030/multi_seed_aggregate.csv
 
 Observed multi-seed metrics:
 - Mean validation R2: 0.9416
@@ -293,7 +293,7 @@ Purpose:
   - 3-layer GCN
 
 Latest architecture comparison result:
-- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Outputs_Architecture_Comparison/run_20260629_131322/architecture_comparison_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/architecture_comparison/run_20260629_131322/architecture_comparison_summary.csv
 
 Observed single-seed metrics:
 - GCN-2 control:
@@ -322,6 +322,42 @@ Interpretation:
 - This suggests the current feature pipeline is already doing most of the available work, and simple architecture swaps are not enough to break through the current performance ceiling.
 
 
+Phase 10: GCN-2 vs GCN-3 multi-seed validation
+----------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Cloud_Notebook_Architecture_Comparison_Multi_Seed.ipynb
+
+Latest multi-seed architecture validation results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/architecture_comparison_multi_seed/run_20260629_143551/architecture_multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/architecture_comparison_multi_seed/run_20260629_143551/architecture_multi_seed_aggregate.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/architecture_comparison_multi_seed/run_20260629_143551/gcn3_vs_gcn2_per_seed_delta.csv
+
+Observed multi-seed metrics:
+- GCN-2 control:
+  - Mean validation R2: 0.9416
+  - Mean test R2: 0.9447
+  - Mean test RMSE: 0.002908
+  - Mean prediction-set R2: 0.4459
+- GCN-3:
+  - Mean validation R2: 0.9411
+  - Mean test R2: 0.9456
+  - Mean test RMSE: 0.002882
+  - Mean prediction-set R2: 0.4453
+
+Per-seed comparison:
+- GCN-3 beat GCN-2 on test R2 in 4 of 5 seeds.
+- Mean test R2 delta for GCN-3 minus GCN-2: +0.00090
+- Mean test RMSE delta for GCN-3 minus GCN-2: -0.000025
+- Mean prediction-set R2 delta for GCN-3 minus GCN-2: -0.00063
+
+Interpretation:
+- The multi-seed comparison confirms a small but real in-distribution advantage for the 3-layer GCN.
+- The gain is consistent enough to promote GCN-3 over GCN-2 when the priority is best average held-out test accuracy.
+- However, the magnitude of the gain is still modest rather than decisive.
+- Prediction-set performance did not improve on average; it remained effectively flat to slightly worse.
+- This means extra depth helps test-set fit somewhat, but it does not solve the generalization weakness on the prediction set.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -329,15 +365,19 @@ Current assessment
 3. SGD + momentum and SGD + Nesterov are not competitive for this task under the tested budgets.
 4. Weighted edges are worth keeping because they preserve real graph information and improved prediction-set behavior.
 5. Richer node features are the clearest representation improvement and remain the strongest configuration for mean prediction-set R2.
-6. Graph-level summary features plus target normalization now provide the best mean held-out test accuracy:
-   - Mean test R2: 0.9447
-   - Mean test RMSE: 0.002908
+6. The current best mean held-out test configuration is now:
+   - richer graph features
+   - target normalization
+   - 3-layer GCN
+   - Mean test R2: 0.9456
+   - Mean test RMSE: 0.002882
 7. There is now a measurable tradeoff between in-distribution accuracy and prediction-set generalization:
-   - Best mean test R2: richer graph features + target normalization
+   - Best mean test R2: richer graph features + target normalization + 3-layer GCN
    - Best mean prediction-set R2: richer node features only
-8. The first architecture comparison did not reveal a strong new winner.
-9. The 3-layer GCN is the only architecture variant that showed enough signal to justify one more multi-seed check.
-10. Further progress is now more likely to come from residual/deeper GCN variants, objective changes, or generalization strategy changes than from broad architecture-family swaps or additional optimizer sweeps.
+8. The 3-layer GCN is now modestly favored over the 2-layer control for in-distribution performance.
+9. The benefit from greater depth is real but small, and does not materially improve prediction-set robustness.
+10. Broad architecture-family swaps remain de-prioritized after GIN and GraphSAGE underperformed.
+11. Further progress is now more likely to come from residual/deeper GCN variants, objective changes, or generalization strategy changes than from additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -375,23 +415,20 @@ Recommended next steps
 ----------------------
 1. Keep weighted edges enabled.
 2. Keep richer node features as the default representation baseline for future comparisons.
-3. Keep graph-level summary features and target normalization as the current best test-accuracy configuration.
-4. Run a multi-seed comparison of only:
-   - GCN-2 control
-   - GCN-3
-5. De-prioritize as active architecture directions:
+3. Promote graph-level summary features + target normalization + GCN-3 as the current best test-accuracy configuration.
+4. De-prioritize as active architecture directions:
    - GIN
    - GraphSAGE
-6. If GCN-3 does not show a real multi-seed gain, shift the next architecture work toward:
+5. Continue architecture work from the GCN-3 line rather than from GCN-2:
    - residual 3-layer GCN
    - skip-connected deeper GCN variants
-7. Consider objective-level changes that directly target generalization:
+6. Prioritize changes that specifically target prediction-set generalization, since depth did not improve that metric:
    - alternate target scaling only if justified by target distribution
    - split strategy review if prediction-set mismatch is structural
-8. After architecture or objective changes, compare only:
+7. After architecture or objective changes, compare only:
    - Adam baseline
    - AdamW sanity check
-9. Use repeated seeds for any serious promotion decision.
+8. Use repeated seeds for any serious promotion decision.
 
 
 Bottom line
@@ -400,7 +437,8 @@ The optimizer investigation is largely settled for the current representation:
 - Keep Adam
 - Stop spending time on SGD and Nesterov
 - Keep richer node features as the strongest prediction-set baseline
-- Keep richer graph features + target normalization as the strongest mean test-accuracy configuration
+- Keep richer graph features + target normalization + GCN-3 as the strongest mean test-accuracy configuration
 - De-prioritize GIN and GraphSAGE after the first architecture comparison
-- Give GCN-3 one multi-seed validation pass before promoting it
+- GCN-3 is now promoted over GCN-2 for best average test performance
 - Move effort next into residual/deeper GCN design and generalization-focused objective design
+

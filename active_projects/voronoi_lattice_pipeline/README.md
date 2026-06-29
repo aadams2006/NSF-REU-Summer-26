@@ -11,7 +11,10 @@ This active project contains the organized Voronoi lattice generation and protot
   - Abaqus script that generates per-randomness simulation folders and exports CSV graph-style data.
 - `gnn_prototype`
   - `colab_gnn_stiffness_prototype.py`
-  - Colab-oriented prototype for stiffness prediction from the exported Voronoi lattice data.
+  - `notebooks/`
+  - `outputs/`
+  - `GCN_Optimization/`
+  - Colab-oriented prototype for stiffness prediction, with notebooks and saved artifacts grouped by experiment.
 - `datasets`
   - Generated lattice folders used for training and prediction inputs.
 - `source_archives`
