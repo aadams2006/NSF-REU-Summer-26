@@ -1,0 +1,11 @@
+{
+  "architecture": "GCN-3 Residual",
+  "architecture_key": "gcn3_residual",
+  "seed": 42,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "model_output_dir": "/content/drive/MyDrive/gnn_prototype_outputs/gcn3_residual/run_20260701_143019/per_model/gcn3_residual/run_20260701_151136",
+  "test_r2": 0.954153299331665,
+  "test_rmse": 0.0028012924571887807,
+  "prediction_r2": 0.4436992406845093
+}
