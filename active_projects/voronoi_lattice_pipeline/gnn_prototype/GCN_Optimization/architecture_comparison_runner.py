@@ -22,7 +22,7 @@ MODULE_DIR = Path(__file__).resolve().parents[1]
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 
-from active_projects.voronoi_lattice_pipeline.gnn_prototype.GCN_Optimization.colab_gnn_stiffness_prototype import (  # noqa: E402
+from colab_gnn_stiffness_prototype import (  # noqa: E402
     SimpleGNN,
     create_data_loaders,
     compute_regression_metrics,
@@ -70,6 +70,7 @@ class ArchitectureConfig:
 ARCHITECTURE_LABELS = {
     "gcn2_control": "GCN-2 Control",
     "gcn3": "GCN-3",
+    "gcn3_residual": "GCN-3 Residual",
     "gin": "GIN",
     "graphsage": "GraphSAGE",
 }
@@ -117,6 +118,42 @@ class ThreeLayerGCN(nn.Module):
         x = self.dropout(x)
 
         return self.output(_concat_graph_features(x, data, self.graph_feature_dim))
+
+
+class ResidualThreeLayerGCN(nn.Module):
+    def __init__(self, input_dim: int, hidden_dim: int, graph_feature_dim: int = 0, dropout: float = 0.1) -> None:
+        super().__init__()
+        self.graph_feature_dim = graph_feature_dim
+        self.conv1 = GCNConv(input_dim, hidden_dim)
+        self.bn1 = nn.BatchNorm1d(hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim)
+        self.bn2 = nn.BatchNorm1d(hidden_dim)
+        self.conv3 = GCNConv(hidden_dim, hidden_dim)
+        self.bn3 = nn.BatchNorm1d(hidden_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.output = nn.Linear(hidden_dim + graph_feature_dim, 1)
+
+    def forward(self, data: Data) -> torch.Tensor:
+        edge_weight = getattr(data, "edge_weight", None)
+
+        h1 = self.conv1(data.x, data.edge_index, edge_weight=edge_weight)
+        h1 = self.bn1(h1)
+        h1 = torch.relu(h1)
+        h1 = self.dropout(h1)
+
+        h2 = self.conv2(h1, data.edge_index, edge_weight=edge_weight)
+        h2 = self.bn2(h2)
+        h2 = h2 + h1
+        h2 = torch.relu(h2)
+        h2 = self.dropout(h2)
+
+        h3 = self.conv3(h2, data.edge_index, edge_weight=edge_weight)
+        h3 = self.bn3(h3)
+        h3 = h3 + h2
+        h3 = torch.relu(h3)
+        h3 = self.dropout(h3)
+
+        return self.output(_concat_graph_features(h3, data, self.graph_feature_dim))
 
 
 class GINRegressor(nn.Module):
@@ -206,6 +243,13 @@ def build_model(
         )
     if config.architecture_name == "gcn3":
         return ThreeLayerGCN(
+            input_dim=input_dim,
+            hidden_dim=config.hidden_dim,
+            graph_feature_dim=graph_feature_dim,
+            dropout=config.dropout,
+        )
+    if config.architecture_name == "gcn3_residual":
+        return ResidualThreeLayerGCN(
             input_dim=input_dim,
             hidden_dim=config.hidden_dim,
             graph_feature_dim=graph_feature_dim,
