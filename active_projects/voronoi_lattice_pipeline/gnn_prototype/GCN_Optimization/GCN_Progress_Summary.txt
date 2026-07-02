@@ -397,13 +397,51 @@ Interpretation:
 - The result is best interpreted as confirmation that the current pipeline can operate in the 0.95-plus single-run regime, not as evidence that the residual variant should replace plain GCN-3.
 
 
+Phase 12: Residual GCN-3 multi-seed validation
+----------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_residual_multi_seed/GCN_Cloud_Notebook_GCN3_Residual_Multi_Seed.ipynb
+
+Latest residual multi-seed results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_multi_seed/run_20260702_123511/gcn3_residual_multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_multi_seed/run_20260702_123511/gcn3_residual_multi_seed_aggregate.csv
+
+Observed multi-seed metrics:
+- GCN-3 Residual:
+  - Mean validation R2: 0.9412
+  - Mean test R2: 0.9424
+  - Mean test RMSE: 0.002964
+  - Mean prediction-set R2: 0.5007
+
+Key comparison versus plain GCN-3:
+- Plain GCN-3 mean test R2: 0.9456
+- Residual GCN-3 mean test R2: 0.9424
+- Plain GCN-3 mean test RMSE: 0.002882
+- Residual GCN-3 mean test RMSE: 0.002964
+- Plain GCN-3 mean prediction-set R2: 0.4453
+- Residual GCN-3 mean prediction-set R2: 0.5007
+
+Important behavior:
+- The residual model underperformed sharply on seed 202:
+  - Test R2: 0.9257
+  - Test RMSE: 0.003437
+- This single unstable seed was large enough to pull the mean test performance below the promoted plain GCN-3 baseline.
+
+Interpretation:
+- The residual GCN-3 should not be promoted as the new best mean test-accuracy model.
+- Plain GCN-3 remains the strongest mean held-out test configuration.
+- However, residual GCN-3 is now the strongest prediction-set model tested so far.
+- This suggests residual skip connections may help out-of-distribution behavior, but the current residual training setup is not stable enough across seeds.
+- The next high-value step is not abandoning the residual model, but retuning it for stability.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
 2. AdamW is consistently worse than Adam on this problem, even when matched fairly.
 3. SGD + momentum and SGD + Nesterov are not competitive for this task under the tested budgets.
 4. Weighted edges are worth keeping because they preserve real graph information and improved prediction-set behavior.
-5. Richer node features are the clearest representation improvement and remain the strongest configuration for mean prediction-set R2.
+5. Richer node features remain a strong baseline for prediction-set behavior, but are no longer the top prediction-set result overall.
 6. The current best mean held-out test configuration is now:
    - richer graph features
    - target normalization
@@ -412,12 +450,13 @@ Current assessment
    - Mean test RMSE: 0.002882
 7. There is now a measurable tradeoff between in-distribution accuracy and prediction-set generalization:
    - Best mean test R2: richer graph features + target normalization + 3-layer GCN
-   - Best mean prediction-set R2: richer node features only
+   - Best mean prediction-set R2: richer graph features + target normalization + residual 3-layer GCN
 8. The 3-layer GCN is now modestly favored over the 2-layer control for in-distribution performance.
 9. The benefit from greater depth is real but small, and does not materially improve prediction-set robustness.
 10. Broad architecture-family swaps remain de-prioritized after GIN and GraphSAGE underperformed.
-11. The first residual GCN-3 single-run test did not outperform the promoted plain GCN-3 baseline.
-12. Further progress is now more likely to come from multi-seed validation of residual/deeper GCN variants, objective changes, or generalization strategy changes than from additional optimizer sweeps.
+11. The residual GCN-3 is currently the most promising architecture for prediction-set generalization, but not for best mean test accuracy.
+12. The residual GCN-3 currently looks like a stability problem rather than a failed modeling direction.
+13. Further progress is now more likely to come from residual/deeper GCN stabilization, objective changes, or generalization strategy changes than from additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -459,17 +498,22 @@ Recommended next steps
 4. De-prioritize as active architecture directions:
    - GIN
    - GraphSAGE
-5. Run a multi-seed validation of the residual GCN-3 before making any promotion decision.
-6. Continue architecture work from the GCN-3 line rather than from GCN-2:
-   - residual 3-layer GCN
+5. Keep residual GCN-3 as the leading prediction-set candidate, but do not promote it over plain GCN-3 yet.
+6. Retune the residual GCN-3 for stability before trying more architectural complexity:
+   - lower dropout
+   - slightly lower phase-1 learning rate
+   - slightly higher weight decay
+   - possibly smaller hidden dimension
+7. Continue architecture work from the GCN-3 line rather than from GCN-2:
+   - retuned residual 3-layer GCN
    - skip-connected deeper GCN variants
-7. Prioritize changes that specifically target prediction-set generalization, since depth did not improve that metric:
+8. Prioritize changes that specifically target prediction-set generalization, since residual depth improved that metric but hurt stability:
    - alternate target scaling only if justified by target distribution
    - split strategy review if prediction-set mismatch is structural
-8. After architecture or objective changes, compare only:
+9. After architecture or objective changes, compare only:
    - Adam baseline
    - AdamW sanity check
-9. Use repeated seeds for any serious promotion decision.
+10. Use repeated seeds for any serious promotion decision.
 
 
 Bottom line
@@ -477,10 +521,10 @@ Bottom line
 The optimizer investigation is largely settled for the current representation:
 - Keep Adam
 - Stop spending time on SGD and Nesterov
-- Keep richer node features as the strongest prediction-set baseline
+- Plain GCN-3 remains the strongest mean test-accuracy configuration
+- Residual GCN-3 is now the strongest prediction-set configuration, but is too unstable to promote
 - Keep richer graph features + target normalization + GCN-3 as the strongest mean test-accuracy configuration
 - De-prioritize GIN and GraphSAGE after the first architecture comparison
 - GCN-3 is now promoted over GCN-2 for best average test performance
-- Residual GCN-3 has crossed 0.95 in a single run, but is not promoted over plain GCN-3 yet
-- Move effort next into residual/deeper GCN design and generalization-focused objective design
+- Move effort next into residual GCN stabilization and generalization-focused objective design
 
