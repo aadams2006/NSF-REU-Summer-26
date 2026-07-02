@@ -1,0 +1,19 @@
+{
+  "Architecture": "GCN-3 Residual",
+  "Architecture_Key": "gcn3_residual",
+  "Seed": 42,
+  "Input_Dim": 9,
+  "Graph_Feature_Dim": 12,
+  "Epochs_Completed": 900,
+  "Best_Val_Loss": 0.0647798302769661,
+  "Validation_RMSE": 0.003093194093789224,
+  "Validation_MAE": 0.0025017624720931053,
+  "Validation_R2": 0.9389159083366394,
+  "Test_RMSE": 0.0028012924571887807,
+  "Test_MAE": 0.002135256305336952,
+  "Test_R2": 0.954153299331665,
+  "Prediction_RMSE": 0.002998345377480261,
+  "Prediction_MAE": 0.002584506291896105,
+  "Prediction_R2": 0.4436992406845093,
+  "Output_Dir": "/content/drive/MyDrive/gnn_prototype_outputs/gcn3_residual_multi_seed/run_20260702_123511/per_model/gcn3_residual/run_20260702_130808"
+}
