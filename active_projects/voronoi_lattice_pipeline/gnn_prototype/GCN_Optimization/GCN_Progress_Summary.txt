@@ -465,6 +465,37 @@ Interpretation:
 - The residual direction should not be abandoned, but future retunes should be narrower and more isolated.
 
 
+Phase 14: Residual GCN-3 narrow LR retune single-run test
+---------------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_residual_narrow_lr_retune/GCN_Cloud_Notebook_GCN3_Residual_Narrow_LR_Retune.ipynb
+
+Retuning applied:
+- hidden_dim kept at 24
+- dropout kept at 0.10
+- weight decay kept at 1e-5
+- only the learning-rate schedule was reduced:
+  - phase 1: 0.0025
+  - phase 2: 0.00045
+
+Latest narrow-LR single-run result:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_narrow_lr_retune/run_20260703_130204/gcn3_residual_narrow_lr_retune_summary.csv
+
+Observed single-run metrics:
+- Validation R2: 0.9389
+- Test R2: 0.9537
+- Test RMSE: 0.002814
+- Prediction-set R2: 0.4600
+
+Interpretation:
+- The narrow learning-rate retune was better than the broad retune.
+- It recovered prediction-set performance substantially compared with the broad retune.
+- It also slightly improved prediction-set performance versus the original residual seed-42 run.
+- However, it still did not beat plain GCN-3 on held-out test performance.
+- It also did not beat the original residual seed-42 run on test performance.
+- This makes the narrow-LR retune a useful directional refinement, but not a promotion result.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -487,7 +518,8 @@ Current assessment
 11. The residual GCN-3 is currently the most promising architecture for prediction-set generalization, but not for best mean test accuracy.
 12. The residual GCN-3 currently looks like a stability problem rather than a failed modeling direction.
 13. The first broad residual retune was too aggressive and hurt prediction-set performance without improving test performance.
-14. Further progress is now more likely to come from narrower residual/deeper GCN stabilization, objective changes, or generalization strategy changes than from additional optimizer sweeps.
+14. The narrow LR-only retune was a better tuning strategy than the broad retune, but still did not beat the plain GCN-3 test baseline.
+15. Further progress is now more likely to come from multi-seed validation of the narrow-LR residual setup, additional residual stabilization, objective changes, or generalization strategy changes than from additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -530,11 +562,7 @@ Recommended next steps
    - GIN
    - GraphSAGE
 5. Keep residual GCN-3 as the leading prediction-set candidate, but do not promote it over plain GCN-3 yet.
-6. Retune the residual GCN-3 more narrowly before trying more architectural complexity.
-   - keep hidden_dim at 24
-   - keep dropout at 0.10
-   - keep weight decay at 1e-5
-   - adjust only the learning-rate schedule first
+6. Run a multi-seed validation of the narrow-LR residual setup before changing more knobs.
 7. Continue architecture work from the GCN-3 line rather than from GCN-2:
    - retuned residual 3-layer GCN
    - skip-connected deeper GCN variants
@@ -558,5 +586,6 @@ The optimizer investigation is largely settled for the current representation:
 - De-prioritize GIN and GraphSAGE after the first architecture comparison
 - GCN-3 is now promoted over GCN-2 for best average test performance
 - The first broad residual retune underperformed, so the next attempt should isolate smaller learning-rate changes
+- The narrow LR-only retune was directionally better than the broad retune, but still not better than plain GCN-3 on test performance
 - Move effort next into residual GCN stabilization and generalization-focused objective design
 
