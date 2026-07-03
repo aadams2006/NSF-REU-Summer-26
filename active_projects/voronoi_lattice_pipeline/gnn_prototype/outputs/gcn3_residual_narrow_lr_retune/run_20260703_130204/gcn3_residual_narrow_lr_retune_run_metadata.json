@@ -1,0 +1,14 @@
+{
+  "architecture": "GCN-3 Residual Narrow LR Retune",
+  "architecture_key": "gcn3_residual",
+  "seed": 42,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "weight_decay": 1e-05,
+  "lr_phase1": 0.0025,
+  "lr_phase2": 0.00045,
+  "model_output_dir": "/content/drive/MyDrive/gnn_prototype_outputs/gcn3_residual_narrow_lr_retune/run_20260703_130204/per_model/gcn3_residual/run_20260703_131732",
+  "test_r2": 0.9537436962127686,
+  "test_rmse": 0.0028137783742298583,
+  "prediction_r2": 0.46003592014312744
+}
