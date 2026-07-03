@@ -1,0 +1,19 @@
+{
+  "Architecture": "GCN-3 Residual Narrow LR Retune",
+  "Architecture_Key": "gcn3_residual",
+  "Seed": 42,
+  "Input_Dim": 9,
+  "Graph_Feature_Dim": 12,
+  "Epochs_Completed": 900,
+  "Best_Val_Loss": 0.06479433596134186,
+  "Validation_RMSE": 0.00309354058982012,
+  "Validation_MAE": 0.0025024127680808306,
+  "Validation_R2": 0.9389022588729858,
+  "Test_RMSE": 0.0028137783742298583,
+  "Test_MAE": 0.0021589044481515884,
+  "Test_R2": 0.9537436962127686,
+  "Prediction_RMSE": 0.0029539916859440555,
+  "Prediction_MAE": 0.0025095860473811626,
+  "Prediction_R2": 0.46003592014312744,
+  "Output_Dir": "/content/drive/MyDrive/gnn_prototype_outputs/gcn3_residual_narrow_lr_retune_multi_seed/run_20260703_133147/per_model/gcn3_residual/run_20260703_140308"
+}
