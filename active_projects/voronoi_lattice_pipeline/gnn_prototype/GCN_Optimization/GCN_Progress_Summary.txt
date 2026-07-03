@@ -496,6 +496,55 @@ Interpretation:
 - This makes the narrow-LR retune a useful directional refinement, but not a promotion result.
 
 
+Phase 15: Residual GCN-3 narrow LR retune multi-seed validation
+---------------------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_residual_narrow_lr_retune_multi_seed/GCN_Cloud_Notebook_GCN3_Residual_Narrow_LR_Retune_Multi_Seed.ipynb
+
+Latest narrow-LR residual multi-seed results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_narrow_lr_retune_multi_seed/run_20260703_133147/gcn3_residual_narrow_lr_retune_multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_narrow_lr_retune_multi_seed/run_20260703_133147/gcn3_residual_narrow_lr_retune_multi_seed_aggregate.csv
+
+Observed multi-seed metrics:
+- GCN-3 Residual Narrow LR Retune:
+  - Mean validation R2: 0.9406
+  - Mean test R2: 0.9440
+  - Mean test RMSE: 0.002926
+  - Mean prediction-set R2: 0.4724
+
+Key comparison versus prior residual multi-seed run:
+- Original residual mean test R2: 0.9424
+- Narrow-LR residual mean test R2: 0.9440
+- Original residual mean test RMSE: 0.002964
+- Narrow-LR residual mean test RMSE: 0.002926
+- Original residual test R2 std: 0.0115
+- Narrow-LR residual test R2 std: 0.0080
+- Original residual worst-seed test R2: 0.9257
+- Narrow-LR residual worst-seed test R2: 0.9338
+- Original residual mean prediction-set R2: 0.5007
+- Narrow-LR residual mean prediction-set R2: 0.4724
+
+Key comparison versus promoted plain GCN-3 baseline:
+- Plain GCN-3 mean test R2: 0.9456
+- Narrow-LR residual mean test R2: 0.9440
+- Plain GCN-3 mean test RMSE: 0.002882
+- Narrow-LR residual mean test RMSE: 0.002926
+- Plain GCN-3 mean prediction-set R2: 0.4453
+- Narrow-LR residual mean prediction-set R2: 0.4724
+
+Interpretation:
+- The narrow-LR residual retune improved the residual line meaningfully on stability.
+- It reduced the bad-tail failure seen in the original residual multi-seed run.
+- It also improved the residual model's mean test performance.
+- However, it still did not surpass plain GCN-3 on mean held-out test R2 or RMSE.
+- At the same time, it gave back part of the original residual model's prediction-set advantage.
+- The correct ranking is now:
+  - Best mean test-accuracy model: plain GCN-3
+  - Best stabilized residual compromise: narrow-LR residual GCN-3
+  - Best raw prediction-set mean: original residual GCN-3
+- This means the residual direction remains viable, but the next best step should target objective-level robustness rather than more optimizer work.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -515,11 +564,12 @@ Current assessment
 8. The 3-layer GCN is now modestly favored over the 2-layer control for in-distribution performance.
 9. The benefit from greater depth is real but small, and does not materially improve prediction-set robustness.
 10. Broad architecture-family swaps remain de-prioritized after GIN and GraphSAGE underperformed.
-11. The residual GCN-3 is currently the most promising architecture for prediction-set generalization, but not for best mean test accuracy.
-12. The residual GCN-3 currently looks like a stability problem rather than a failed modeling direction.
-13. The first broad residual retune was too aggressive and hurt prediction-set performance without improving test performance.
-14. The narrow LR-only retune was a better tuning strategy than the broad retune, but still did not beat the plain GCN-3 test baseline.
-15. Further progress is now more likely to come from multi-seed validation of the narrow-LR residual setup, additional residual stabilization, objective changes, or generalization strategy changes than from additional optimizer sweeps.
+11. The original residual GCN-3 remains the strongest raw prediction-set model tested so far, but not the strongest mean test-accuracy model.
+12. The narrow-LR residual GCN-3 is now the strongest stabilized residual variant and the best compromise residual candidate.
+13. The residual GCN-3 line still looks more like a robustness/objective problem than a capacity problem.
+14. The first broad residual retune was too aggressive and hurt prediction-set performance without improving test performance.
+15. The narrow LR-only retune improved residual stability and mean test accuracy, but still did not beat the plain GCN-3 test baseline.
+16. Further progress is now more likely to come from objective changes or residual/generalization strategy changes than from additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -561,18 +611,19 @@ Recommended next steps
 4. De-prioritize as active architecture directions:
    - GIN
    - GraphSAGE
-5. Keep residual GCN-3 as the leading prediction-set candidate, but do not promote it over plain GCN-3 yet.
-6. Run a multi-seed validation of the narrow-LR residual setup before changing more knobs.
-7. Continue architecture work from the GCN-3 line rather than from GCN-2:
-   - retuned residual 3-layer GCN
+5. Keep plain GCN-3 promoted as the best mean test-accuracy configuration.
+6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
+7. Use objective-level robustness as the next highest-value step:
+   - test Huber/SmoothL1 loss on the narrow-LR residual GCN-3 setup
+8. Continue architecture work only after that objective test if needed:
    - skip-connected deeper GCN variants
-8. Prioritize changes that specifically target prediction-set generalization, since residual depth improved that metric but hurt stability:
-   - alternate target scaling only if justified by target distribution
+9. Prioritize changes that specifically target prediction-set generalization and seed-tail stability:
+   - objective changes first
    - split strategy review if prediction-set mismatch is structural
-9. After architecture or objective changes, compare only:
+10. After architecture or objective changes, compare only:
    - Adam baseline
    - AdamW sanity check
-10. Use repeated seeds for any serious promotion decision.
+11. Use repeated seeds for any serious promotion decision.
 
 
 Bottom line
@@ -581,11 +632,12 @@ The optimizer investigation is largely settled for the current representation:
 - Keep Adam
 - Stop spending time on SGD and Nesterov
 - Plain GCN-3 remains the strongest mean test-accuracy configuration
-- Residual GCN-3 is now the strongest prediction-set configuration, but is too unstable to promote
+- Original residual GCN-3 remains the strongest raw prediction-set configuration, but is too unstable to promote
+- Narrow-LR residual GCN-3 is the best stabilized residual compromise, but still not better than plain GCN-3 on mean test performance
 - Keep richer graph features + target normalization + GCN-3 as the strongest mean test-accuracy configuration
 - De-prioritize GIN and GraphSAGE after the first architecture comparison
 - GCN-3 is now promoted over GCN-2 for best average test performance
 - The first broad residual retune underperformed, so the next attempt should isolate smaller learning-rate changes
-- The narrow LR-only retune was directionally better than the broad retune, but still not better than plain GCN-3 on test performance
-- Move effort next into residual GCN stabilization and generalization-focused objective design
+- The narrow LR-only retune was directionally better than the broad retune and improved residual stability, but still not better than plain GCN-3 on mean test performance
+- Move effort next into residual GCN objective design, starting with Huber-loss testing on the stabilized residual setup
 

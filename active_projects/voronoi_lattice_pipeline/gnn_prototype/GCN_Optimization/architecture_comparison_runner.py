@@ -50,6 +50,8 @@ class ArchitectureConfig:
     epochs_phase2: int = 700
     patience: int = 999
     weight_decay: float = 1e-5
+    loss_name: str = "mse"
+    huber_beta: float = 0.75
     seed: int = 42
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     output_group: str = "architecture_comparison"
@@ -342,6 +344,15 @@ def run_epoch(
     return total_loss / len(data_loader.dataset)
 
 
+def build_loss_criterion(config: ArchitectureConfig) -> nn.Module:
+    loss_name = config.loss_name.lower()
+    if loss_name == "mse":
+        return nn.MSELoss()
+    if loss_name in {"huber", "smooth_l1", "smoothl1"}:
+        return nn.SmoothL1Loss(beta=config.huber_beta)
+    raise ValueError(f"Unsupported loss function: {config.loss_name}")
+
+
 def train_target_normalized_model(
     model: nn.Module,
     train_loader,
@@ -349,7 +360,7 @@ def train_target_normalized_model(
     config: ArchitectureConfig,
 ) -> dict[str, float | list[float]]:
     model.to(config.device)
-    criterion = nn.MSELoss()
+    criterion = build_loss_criterion(config)
 
     history: dict[str, float | list[float]] = {
         "train_losses": [],
@@ -471,7 +482,7 @@ def build_training_history_figure(history: dict[str, float | list[float]], phase
     axis.plot(history["val_losses"], label="Validation loss", linewidth=2)
     axis.axvline(phase_1_epochs, color="gray", linestyle="--", linewidth=1.5, label="Phase switch")
     axis.set_xlabel("Epoch")
-    axis.set_ylabel("MSE loss")
+    axis.set_ylabel("Loss")
     axis.set_title("Training history")
     axis.grid(alpha=0.3)
     axis.legend()
@@ -514,6 +525,8 @@ def build_result_summary(
                 "Seed": config.seed,
                 "Input_Dim": input_dim,
                 "Graph_Feature_Dim": graph_feature_dim,
+                "Loss_Name": config.loss_name,
+                "Huber_Beta": config.huber_beta,
                 "Epochs_Completed": history["epochs_completed"],
                 "Best_Val_Loss": history["best_val_loss"],
                 "Validation_RMSE": metrics_by_split["Validation"]["RMSE"],
