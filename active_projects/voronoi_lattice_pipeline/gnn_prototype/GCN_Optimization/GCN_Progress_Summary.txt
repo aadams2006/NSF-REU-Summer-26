@@ -435,6 +435,36 @@ Interpretation:
 - The next high-value step is not abandoning the residual model, but retuning it for stability.
 
 
+Phase 13: Residual GCN-3 broad retune single-run test
+-----------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_residual_retuned/GCN_Cloud_Notebook_GCN3_Residual_Retuned.ipynb
+
+Retuning applied:
+- hidden_dim reduced from 24 to 20
+- dropout reduced from 0.10 to 0.05
+- weight decay increased from 1e-5 to 5e-5
+- learning rates reduced to:
+  - phase 1: 0.002
+  - phase 2: 0.0004
+
+Latest broad-retune single-run result:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_retuned/run_20260703_121447/gcn3_residual_retuned_summary.csv
+
+Observed single-run metrics:
+- Validation R2: 0.9391
+- Test R2: 0.9541
+- Test RMSE: 0.002802
+- Prediction-set R2: 0.3545
+
+Interpretation:
+- The broad retune did not improve the residual model.
+- Test performance remained nearly unchanged relative to the original residual seed-42 run.
+- Prediction-set performance deteriorated substantially.
+- This indicates the broad retune over-corrected and reduced useful model capacity or expressiveness.
+- The residual direction should not be abandoned, but future retunes should be narrower and more isolated.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -456,7 +486,8 @@ Current assessment
 10. Broad architecture-family swaps remain de-prioritized after GIN and GraphSAGE underperformed.
 11. The residual GCN-3 is currently the most promising architecture for prediction-set generalization, but not for best mean test accuracy.
 12. The residual GCN-3 currently looks like a stability problem rather than a failed modeling direction.
-13. Further progress is now more likely to come from residual/deeper GCN stabilization, objective changes, or generalization strategy changes than from additional optimizer sweeps.
+13. The first broad residual retune was too aggressive and hurt prediction-set performance without improving test performance.
+14. Further progress is now more likely to come from narrower residual/deeper GCN stabilization, objective changes, or generalization strategy changes than from additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -499,11 +530,11 @@ Recommended next steps
    - GIN
    - GraphSAGE
 5. Keep residual GCN-3 as the leading prediction-set candidate, but do not promote it over plain GCN-3 yet.
-6. Retune the residual GCN-3 for stability before trying more architectural complexity:
-   - lower dropout
-   - slightly lower phase-1 learning rate
-   - slightly higher weight decay
-   - possibly smaller hidden dimension
+6. Retune the residual GCN-3 more narrowly before trying more architectural complexity.
+   - keep hidden_dim at 24
+   - keep dropout at 0.10
+   - keep weight decay at 1e-5
+   - adjust only the learning-rate schedule first
 7. Continue architecture work from the GCN-3 line rather than from GCN-2:
    - retuned residual 3-layer GCN
    - skip-connected deeper GCN variants
@@ -526,5 +557,6 @@ The optimizer investigation is largely settled for the current representation:
 - Keep richer graph features + target normalization + GCN-3 as the strongest mean test-accuracy configuration
 - De-prioritize GIN and GraphSAGE after the first architecture comparison
 - GCN-3 is now promoted over GCN-2 for best average test performance
+- The first broad residual retune underperformed, so the next attempt should isolate smaller learning-rate changes
 - Move effort next into residual GCN stabilization and generalization-focused objective design
 
