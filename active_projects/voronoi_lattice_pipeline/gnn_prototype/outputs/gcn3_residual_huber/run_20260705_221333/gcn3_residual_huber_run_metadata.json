@@ -1,0 +1,16 @@
+{
+  "architecture": "GCN-3 Residual Huber",
+  "architecture_key": "gcn3_residual",
+  "seed": 42,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "weight_decay": 1e-05,
+  "lr_phase1": 0.0025,
+  "lr_phase2": 0.00045,
+  "loss_name": "huber",
+  "huber_beta": 0.75,
+  "model_output_dir": "/content/drive/MyDrive/gnn_prototype_outputs/gcn3_residual_huber/run_20260705_221333/per_model/gcn3_residual/run_20260705_222942",
+  "test_r2": 0.9513633847236633,
+  "test_rmse": 0.002885268632352427,
+  "prediction_r2": 0.41490638256073
+}
