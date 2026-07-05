@@ -545,6 +545,50 @@ Interpretation:
 - This means the residual direction remains viable, but the next best step should target objective-level robustness rather than more optimizer work.
 
 
+Phase 16: Residual GCN-3 Huber-loss single-run test
+---------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_residual_huber/GCN_Cloud_Notebook_GCN3_Residual_Huber.ipynb
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_architecture_gcn3_residual_huber.py
+
+Objective change applied:
+- keep the narrow-LR residual GCN-3 setup fixed
+- replace MSE loss with Huber/SmoothL1 loss
+- use Huber beta = 0.75
+
+Latest Huber single-run result:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_huber/run_20260705_221333/gcn3_residual_huber_summary.csv
+
+Observed single-run metrics:
+- Validation R2: 0.9378
+- Test R2: 0.9514
+- Test RMSE: 0.002885
+- Prediction-set R2: 0.4149
+
+Key comparison versus relevant seed-42 references:
+- Plain GCN-3:
+  - Test R2: 0.9551
+  - Test RMSE: 0.002773
+  - Prediction-set R2: 0.4497
+- Residual GCN-3:
+  - Test R2: 0.9542
+  - Test RMSE: 0.002801
+  - Prediction-set R2: 0.4437
+- Residual narrow-LR retune:
+  - Test R2: 0.9537
+  - Test RMSE: 0.002814
+  - Prediction-set R2: 0.4600
+
+Interpretation:
+- The Huber-loss run did clear the 0.95 test-R2 threshold.
+- That confirms the residual line can still operate in the 0.95-plus regime under a more robust objective.
+- However, this first Huber run did not beat plain GCN-3 on test performance.
+- It also did not beat the best residual seed-42 variants on either test R2 or test RMSE.
+- Its prediction-set result was materially worse than both the original residual and the narrow-LR residual seed-42 runs.
+- This makes the first Huber result promising as a robustness experiment, but not a promotion result.
+- The correct next step is multi-seed verification, because objective changes are valuable mainly if they improve tail stability across seeds rather than only producing one acceptable single-seed run.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -569,7 +613,8 @@ Current assessment
 13. The residual GCN-3 line still looks more like a robustness/objective problem than a capacity problem.
 14. The first broad residual retune was too aggressive and hurt prediction-set performance without improving test performance.
 15. The narrow LR-only retune improved residual stability and mean test accuracy, but still did not beat the plain GCN-3 test baseline.
-16. Further progress is now more likely to come from objective changes or residual/generalization strategy changes than from additional optimizer sweeps.
+16. The first Huber-loss residual run was encouraging in that it crossed 0.95 test R2, but it was still worse than both plain GCN-3 and the best residual seed-42 baselines.
+17. Further progress is now more likely to come from objective changes or residual/generalization strategy changes than from additional optimizer sweeps.
 
 
 Optimization methods to abandon
@@ -613,9 +658,8 @@ Recommended next steps
    - GraphSAGE
 5. Keep plain GCN-3 promoted as the best mean test-accuracy configuration.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
-7. Use objective-level robustness as the next highest-value step:
-   - test Huber/SmoothL1 loss on the narrow-LR residual GCN-3 setup
-8. Continue architecture work only after that objective test if needed:
+7. Run a multi-seed validation of the Huber-loss residual setup before deciding whether Huber should remain active.
+8. Continue architecture work only after that objective validation if needed:
    - skip-connected deeper GCN variants
 9. Prioritize changes that specifically target prediction-set generalization and seed-tail stability:
    - objective changes first
@@ -639,5 +683,6 @@ The optimizer investigation is largely settled for the current representation:
 - GCN-3 is now promoted over GCN-2 for best average test performance
 - The first broad residual retune underperformed, so the next attempt should isolate smaller learning-rate changes
 - The narrow LR-only retune was directionally better than the broad retune and improved residual stability, but still not better than plain GCN-3 on mean test performance
-- Move effort next into residual GCN objective design, starting with Huber-loss testing on the stabilized residual setup
+- The first Huber-loss run crossed 0.95 test R2, but still underperformed the strongest existing baselines and reduced prediction-set performance
+- Move effort next into multi-seed validation of the Huber-loss residual setup before deciding whether to keep or abandon Huber
 
