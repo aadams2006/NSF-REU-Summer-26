@@ -1,0 +1,22 @@
+{
+  "architecture": "GCN-3 Residual Huber",
+  "architecture_key": "gcn3_residual",
+  "seeds": [
+    11,
+    42,
+    73,
+    101,
+    202
+  ],
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "weight_decay": 1e-05,
+  "lr_phase1": 0.0025,
+  "lr_phase2": 0.00045,
+  "loss_name": "huber",
+  "huber_beta": 0.75,
+  "best_seed": 42,
+  "best_test_r2": 0.9513633847236633,
+  "mean_test_r2": 0.94299818277359,
+  "mean_prediction_r2": 0.4554667830467224
+}
