@@ -589,6 +589,54 @@ Interpretation:
 - The correct next step is multi-seed verification, because objective changes are valuable mainly if they improve tail stability across seeds rather than only producing one acceptable single-seed run.
 
 
+Phase 17: Residual GCN-3 Huber-loss multi-seed validation
+---------------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_residual_huber_multi_seed/GCN_Cloud_Notebook_GCN3_Residual_Huber_Multi_Seed.ipynb
+
+Latest Huber multi-seed results:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_huber_multi_seed/run_20260706_123441/gcn3_residual_huber_multi_seed_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_residual_huber_multi_seed/run_20260706_123441/gcn3_residual_huber_multi_seed_aggregate.csv
+
+Observed multi-seed metrics:
+- GCN-3 Residual Huber:
+  - Mean validation R2: 0.9410
+  - Mean test R2: 0.9430
+  - Mean test RMSE: 0.002953
+  - Mean prediction-set R2: 0.4555
+
+Key comparison versus other promoted baselines:
+- Plain GCN-3:
+  - Mean test R2: 0.9456
+  - Mean test RMSE: 0.002882
+  - Mean prediction-set R2: 0.4453
+- Residual GCN-3:
+  - Mean test R2: 0.9424
+  - Mean test RMSE: 0.002964
+  - Mean prediction-set R2: 0.5007
+- Residual narrow-LR retune:
+  - Mean test R2: 0.9440
+  - Mean test RMSE: 0.002926
+  - Mean prediction-set R2: 0.4724
+
+Important behavior:
+- Huber did improve the worst seed relative to the original residual baseline:
+  - Original residual worst-seed test R2: 0.9257
+  - Huber worst-seed test R2: 0.9310
+- However, Huber still did not match the narrow-LR residual worst-seed result:
+  - Narrow-LR residual worst-seed test R2: 0.9338
+- Huber also gave back prediction-set performance on several seeds relative to both residual baselines.
+
+Interpretation:
+- Huber did help the original residual line somewhat on tail stability.
+- However, it did not outperform the narrow-LR residual retune on mean test performance, RMSE, or worst-seed stability.
+- It also did not outperform plain GCN-3 on mean held-out test performance.
+- Its mean prediction-set result fell well below the original residual and below the narrow-LR residual retune.
+- This means Huber should not be promoted as the new best residual training objective.
+- The Huber branch is now sufficiently tested and should be de-prioritized.
+- At this point, further progress is unlikely to come from more local optimizer/loss retuning and is more likely to come from evaluation strategy, data-distribution analysis, or inference-level aggregation.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -614,7 +662,8 @@ Current assessment
 14. The first broad residual retune was too aggressive and hurt prediction-set performance without improving test performance.
 15. The narrow LR-only retune improved residual stability and mean test accuracy, but still did not beat the plain GCN-3 test baseline.
 16. The first Huber-loss residual run was encouraging in that it crossed 0.95 test R2, but it was still worse than both plain GCN-3 and the best residual seed-42 baselines.
-17. Further progress is now more likely to come from objective changes or residual/generalization strategy changes than from additional optimizer sweeps.
+17. The Huber multi-seed validation showed modest worst-seed stabilization relative to the original residual line, but it still underperformed the narrow-LR residual retune and plain GCN-3 overall.
+18. Further progress is now more likely to come from evaluation strategy, data-distribution analysis, or inference-level aggregation than from additional optimizer or loss-function sweeps.
 
 
 Optimization methods to abandon
@@ -658,16 +707,20 @@ Recommended next steps
    - GraphSAGE
 5. Keep plain GCN-3 promoted as the best mean test-accuracy configuration.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
-7. Run a multi-seed validation of the Huber-loss residual setup before deciding whether Huber should remain active.
-8. Continue architecture work only after that objective validation if needed:
+7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
+8. Prioritize evaluation and data-distribution analysis next:
+   - inspect errors by stiffness range
+   - inspect errors by graph size, density, and weighted-degree statistics
+   - compare train/test/prediction-set feature distributions to identify structural mismatch
+9. If the goal is purely to maximize performance without new data generation, test inference-level ensembling of the strongest existing models:
+   - plain GCN-3 multi-seed ensemble
+   - optional comparison against a narrow-LR residual ensemble
+10. Continue architecture work only after that analysis if needed:
    - skip-connected deeper GCN variants
-9. Prioritize changes that specifically target prediction-set generalization and seed-tail stability:
-   - objective changes first
-   - split strategy review if prediction-set mismatch is structural
-10. After architecture or objective changes, compare only:
+11. After architecture or evaluation-strategy changes, compare only:
    - Adam baseline
    - AdamW sanity check
-11. Use repeated seeds for any serious promotion decision.
+12. Use repeated seeds for any serious promotion decision.
 
 
 Bottom line
@@ -684,5 +737,6 @@ The optimizer investigation is largely settled for the current representation:
 - The first broad residual retune underperformed, so the next attempt should isolate smaller learning-rate changes
 - The narrow LR-only retune was directionally better than the broad retune and improved residual stability, but still not better than plain GCN-3 on mean test performance
 - The first Huber-loss run crossed 0.95 test R2, but still underperformed the strongest existing baselines and reduced prediction-set performance
-- Move effort next into multi-seed validation of the Huber-loss residual setup before deciding whether to keep or abandon Huber
+- The Huber multi-seed validation did not justify promotion, so Huber should now be de-prioritized
+- Move effort next into error-distribution analysis and, if the priority is raw benchmark performance, multi-seed ensembling of the strongest existing models
 
