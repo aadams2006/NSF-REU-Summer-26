@@ -53,6 +53,7 @@ class ArchitectureConfig:
     loss_name: str = "mse"
     huber_beta: float = 0.75
     seed: int = 42
+    split_seed: int | None = None
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     output_group: str = "architecture_comparison"
 
@@ -67,6 +68,10 @@ class ArchitectureConfig:
     @property
     def display_name(self) -> str:
         return self.architecture_label or ARCHITECTURE_LABELS.get(self.architecture_name, self.architecture_name)
+
+    @property
+    def effective_split_seed(self) -> int:
+        return self.seed if self.split_seed is None else self.split_seed
 
 
 ARCHITECTURE_LABELS = {
@@ -523,6 +528,7 @@ def build_result_summary(
                 "Architecture": config.display_name,
                 "Architecture_Key": config.architecture_name,
                 "Seed": config.seed,
+                "Split_Seed": config.effective_split_seed,
                 "Input_Dim": input_dim,
                 "Graph_Feature_Dim": graph_feature_dim,
                 "Loss_Name": config.loss_name,
@@ -560,7 +566,7 @@ def run_architecture_experiment(
         predict_root = Path(predict_root)
 
     dataset = load_lattice_dataset(train_root)
-    train_data, val_data, test_data = split_dataset(dataset, seed=config.seed)
+    train_data, val_data, test_data = split_dataset(dataset, seed=config.effective_split_seed)
     feature_scaler = normalize_feature_splits(train_data, val_data, test_data)
     target_scaler = normalize_target_splits(train_data, val_data, test_data)
     train_loader, val_loader, test_loader = create_data_loaders(
@@ -576,6 +582,7 @@ def run_architecture_experiment(
     history = train_target_normalized_model(model, train_loader, val_loader, config)
 
     metrics_by_split: dict[str, dict[str, float]] = {}
+    split_outputs: dict[str, dict[str, np.ndarray]] = {}
     split_results: list[tuple[str, np.ndarray, np.ndarray]] = []
     for split_name, loader in (
         ("Train", train_loader),
@@ -589,6 +596,10 @@ def run_architecture_experiment(
             device=config.device,
         )
         metrics_by_split[split_name] = metrics
+        split_outputs[split_name] = {
+            "predictions": predictions,
+            "ground_truth": ground_truth,
+        }
         split_results.append((split_name, predictions, ground_truth))
 
     prediction_results, prediction_metrics = predict_on_directory_target_normalized(
@@ -644,6 +655,7 @@ def run_architecture_experiment(
     config_payload = {
         **asdict(config),
         "display_name": config.display_name,
+        "effective_split_seed": config.effective_split_seed,
         "input_dim": input_dim,
         "graph_feature_dim": graph_feature_dim,
         "prediction_metrics": prediction_metrics,
@@ -669,6 +681,7 @@ def run_architecture_experiment(
         "output_dir": output_dir,
         "history": history,
         "metrics_by_split": metrics_by_split,
+        "split_outputs": split_outputs,
         "metrics_frame": metrics_frame,
         "prediction_metrics": prediction_metrics,
         "prediction_results": prediction_results,
