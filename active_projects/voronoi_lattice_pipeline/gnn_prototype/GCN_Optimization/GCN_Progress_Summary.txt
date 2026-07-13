@@ -740,6 +740,49 @@ Interpretation:
 - Further optimizer, local architecture, and loss sweeps are unlikely to break the current ceiling without new information or a better understanding of the remaining error distribution.
 
 
+Phase 20: Residual error and distribution-shift analysis setup
+----------------------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/residual_error_analysis.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_residual_error_analysis.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_ensemble_residual_analysis/GCN_Cloud_Notebook_GCN3_Ensemble_Residual_Analysis.ipynb
+
+Purpose:
+- analyze the completed multi-split ensemble without retraining models
+- determine whether the remaining error is concentrated by:
+  - target stiffness range
+  - randomness value
+  - graph size and density
+  - edge-weight and degree statistics
+  - geometric spread
+- compare train, test, and prediction-set feature distributions
+- test whether ensemble-member disagreement is a useful uncertainty signal
+- identify repeatable worst-case lattices across splits
+
+Generated analysis artifacts:
+- per-sample residual table with lattice IDs and graph characteristics
+- per-split residual metrics
+- stiffness-quantile error metrics
+- graph-feature residual correlations
+- graph-feature quantile error metrics
+- per-split and aggregate distribution-shift tables
+- uncertainty/error correlations and uncertainty-bin metrics
+- sample stability and worst-case rankings
+- residual, stiffness-bin, feature-correlation, distribution-shift, and uncertainty figures
+- machine-readable JSON summary
+
+Implementation status:
+- The workflow was validated against all five completed ensemble splits.
+- Reconstructed test targets aligned exactly with the saved member prediction arrays.
+- The analysis runs on CPU and does not require PyTorch Geometric, model loading, or additional training.
+- The Colab notebook supports repository or Google Drive ensemble inputs, Google Drive analysis outputs, and optional GitHub publishing.
+
+Promotion rule:
+- Do not add more model complexity based only on aggregate R2.
+- Use the residual analysis to identify a specific, repeatable failure region first.
+- Only reopen feature engineering or architecture work if an observed error pattern suggests a targeted intervention.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -775,6 +818,7 @@ Current assessment
 23. The ensemble modestly improves mean prediction-set R2 from 0.4453 to 0.4578.
 24. The cross-split ensemble mean test R2 is 0.9456, so the fixed-split 0.9555 result should not be reported as the expected general performance level.
 25. The ensemble is now the preferred high-reliability configuration, while a single plain GCN-3 remains the preferred compute-efficient configuration.
+26. A standalone residual and distribution-shift analysis workflow is now prepared and validated as the next decision-making step.
 
 
 Optimization methods to abandon
@@ -819,7 +863,7 @@ Recommended next steps
 5. Keep plain GCN-3 as the compute-efficient mean test-accuracy reference across varying splits.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
 7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
-8. Prioritize evaluation and data-distribution analysis next:
+8. Run the standalone residual-analysis notebook and use its saved tables to inspect:
    - inspect errors by stiffness range
    - inspect errors by graph size, density, and weighted-degree statistics
    - compare train/test/prediction-set feature distributions to identify structural mismatch
@@ -831,7 +875,7 @@ Recommended next steps
    - AdamW sanity check
 12. Use repeated seeds for any serious promotion decision.
 13. Do not spend additional compute trying to establish the fixed-split 0.9555 result as the expected mean; the varied-split estimate is approximately 0.9456.
-14. Analyze residual errors next by:
+14. Use the residual-analysis outputs to rank intervention targets by:
    - target stiffness range
    - graph size and density
    - weighted-degree and edge-weight statistics
@@ -859,5 +903,6 @@ The optimizer investigation is largely settled for the current representation:
 - The ensemble's confirmed benefit is improved stability: lower test-R2 variance, a better worst split, and a modestly better prediction-set mean
 - The 0.95 threshold was exceeded on two individual splits, but not as a cross-split mean
 - Use the ensemble as the high-reliability configuration and plain GCN-3 as the compute-efficient configuration
-- Move effort next into error-distribution and data-distribution analysis rather than more optimizer, loss, or local architecture sweeps
+- The residual and distribution-shift analysis workflow is now prepared as the next formal experiment
+- Use that analysis to choose a targeted intervention rather than continuing broad optimizer, loss, or local architecture sweeps
 
