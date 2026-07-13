@@ -683,6 +683,63 @@ Important interpretation:
 - This makes ensembling the best path so far if the primary goal is maximizing held-out test accuracy without generating new data.
 
 
+Phase 19: Plain GCN-3 ensemble multi-split validation
+------------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_ensemble_multi_split/GCN_Cloud_Notebook_GCN3_Ensemble_Multi_Split.ipynb
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_ensemble_multi_split/run_resumable_v1/gcn3_ensemble_multi_split_summary.csv
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_ensemble_multi_split/run_resumable_v1/gcn3_ensemble_multi_split_aggregate.csv
+
+Validation strategy:
+- evaluate five-member plain GCN-3 ensembles across split seeds:
+  - 11, 42, 73, 101, 202
+- keep model seeds fixed within each split:
+  - 11, 42, 73, 101, 202
+- use the optimized resumable workflow with cached graph loading, early stopping, and checkpoints
+
+Observed multi-split ensemble metrics:
+- Mean validation R2: 0.9427
+- Mean test R2: 0.945631
+- Test R2 standard deviation: 0.007110
+- Test R2 range: 0.9382 to 0.9534
+- Mean test RMSE: 0.002885
+- Mean prediction-set R2: 0.4578
+- Mean prediction-set RMSE: 0.002959
+
+Key comparison versus the promoted plain GCN-3 multi-seed baseline:
+- Plain GCN-3 mean test R2: 0.945625
+- Ensemble mean test R2: 0.945631
+- Mean test R2 delta: +0.000006
+- Plain GCN-3 test R2 standard deviation: 0.008914
+- Ensemble test R2 standard deviation: 0.007110
+- Plain GCN-3 worst-split test R2: 0.9343
+- Ensemble worst-split test R2: 0.9382
+- Plain GCN-3 mean prediction-set R2: 0.4453
+- Ensemble mean prediction-set R2: 0.4578
+
+Important behavior:
+- The ensemble beat the average performance of its five constituent members on every tested split.
+- Test R2 variability declined by approximately 20 percent.
+- Worst-split test R2 improved by approximately 0.0039.
+- Mean prediction-set R2 improved by approximately 0.0125.
+- Mean test RMSE was effectively unchanged and was very slightly worse numerically:
+  - plain GCN-3: 0.002882
+  - ensemble: 0.002885
+- Two of five split ensembles exceeded 0.95 test R2.
+- The earlier fixed-split ensemble result of 0.9555 was not reproduced as the cross-split mean.
+
+Interpretation:
+- Ensembling is confirmed as a useful variance-reduction and stability method.
+- It raises weak-split performance and makes the model less dependent on a favorable initialization.
+- It also gives a modest average improvement on the separate prediction set.
+- However, it does not produce a meaningful increase in mean held-out test accuracy over plain GCN-3.
+- The mean test R2 remains at approximately 0.946, so the project has not established a cross-split mean above 0.95.
+- The correct promotion decision is:
+  - use the ensemble when reliability and worst-case performance justify the added inference cost
+  - retain a single plain GCN-3 when compute and inference simplicity are more important
+- Further optimizer, local architecture, and loss sweeps are unlikely to break the current ceiling without new information or a better understanding of the remaining error distribution.
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -690,12 +747,13 @@ Current assessment
 3. SGD + momentum and SGD + Nesterov are not competitive for this task under the tested budgets.
 4. Weighted edges are worth keeping because they preserve real graph information and improved prediction-set behavior.
 5. Richer node features remain a strong baseline for prediction-set behavior, but are no longer the top prediction-set result overall.
-6. The current best mean held-out test configuration is now:
+6. The current mean held-out test ceiling is shared by plain GCN-3 and the five-member GCN-3 ensemble:
    - richer graph features
    - target normalization
    - 3-layer GCN
-   - Mean test R2: 0.9456
-   - Mean test RMSE: 0.002882
+   - Plain GCN-3 mean test R2: 0.945625
+   - Ensemble mean test R2: 0.945631
+   - The difference is negligible and should not be treated as an accuracy breakthrough.
 7. There is now a measurable tradeoff between in-distribution accuracy and prediction-set generalization:
    - Best mean test R2: richer graph features + target normalization + 3-layer GCN
    - Best mean prediction-set R2: richer graph features + target normalization + residual 3-layer GCN
@@ -712,6 +770,11 @@ Current assessment
 18. The fixed-split plain GCN-3 ensemble is now the strongest held-out test result overall, with test R2 = 0.9555.
 19. However, that ensemble result is a fixed-split benchmark and should not be conflated with the earlier multi-split mean comparisons.
 20. Further progress is now more likely to come from evaluation strategy, data-distribution analysis, or inference-level aggregation than from additional optimizer or loss-function sweeps.
+21. Multi-split validation confirms that ensembling reduces test R2 variability by approximately 20 percent.
+22. The ensemble improves the worst tested split from test R2 = 0.9343 to 0.9382.
+23. The ensemble modestly improves mean prediction-set R2 from 0.4453 to 0.4578.
+24. The cross-split ensemble mean test R2 is 0.9456, so the fixed-split 0.9555 result should not be reported as the expected general performance level.
+25. The ensemble is now the preferred high-reliability configuration, while a single plain GCN-3 remains the preferred compute-efficient configuration.
 
 
 Optimization methods to abandon
@@ -753,20 +816,26 @@ Recommended next steps
 4. De-prioritize as active architecture directions:
    - GIN
    - GraphSAGE
-5. Keep plain GCN-3 promoted as the best mean test-accuracy configuration across varying splits.
+5. Keep plain GCN-3 as the compute-efficient mean test-accuracy reference across varying splits.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
 7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
 8. Prioritize evaluation and data-distribution analysis next:
    - inspect errors by stiffness range
    - inspect errors by graph size, density, and weighted-degree statistics
    - compare train/test/prediction-set feature distributions to identify structural mismatch
-9. If the goal is purely to maximize performance without new data generation, plain GCN-3 fixed-split ensembling is now the leading method.
+9. Use the multi-split validated plain GCN-3 ensemble when lower split sensitivity and better worst-case behavior justify training and serving five models.
 10. Continue architecture work only after that analysis if needed:
    - skip-connected deeper GCN variants
 11. After architecture or evaluation-strategy changes, compare only:
    - Adam baseline
    - AdamW sanity check
 12. Use repeated seeds for any serious promotion decision.
+13. Do not spend additional compute trying to establish the fixed-split 0.9555 result as the expected mean; the varied-split estimate is approximately 0.9456.
+14. Analyze residual errors next by:
+   - target stiffness range
+   - graph size and density
+   - weighted-degree and edge-weight statistics
+   - train/test/prediction-set feature-distribution differences
 
 
 Bottom line
@@ -774,7 +843,7 @@ Bottom line
 The optimizer investigation is largely settled for the current representation:
 - Keep Adam
 - Stop spending time on SGD and Nesterov
-- Plain GCN-3 remains the strongest mean test-accuracy configuration across varying splits
+- Plain GCN-3 and the five-member ensemble are effectively tied on mean test accuracy across varying splits
 - Fixed-split plain GCN-3 ensembling is now the strongest held-out test result overall
 - Original residual GCN-3 remains the strongest raw prediction-set configuration, but is too unstable to promote
 - Narrow-LR residual GCN-3 is the best stabilized residual compromise, but still not better than plain GCN-3 on mean test performance
@@ -785,6 +854,10 @@ The optimizer investigation is largely settled for the current representation:
 - The narrow LR-only retune was directionally better than the broad retune and improved residual stability, but still not better than plain GCN-3 on mean test performance
 - The first Huber-loss run crossed 0.95 test R2, but still underperformed the strongest existing baselines and reduced prediction-set performance
 - The Huber multi-seed validation did not justify promotion, so Huber should now be de-prioritized
-- The fixed-split GCN-3 ensemble exceeded the 0.95 test-R2 target, but did not improve prediction-set generalization
-- Move effort next into error-distribution analysis unless the sole priority is maximizing fixed-split held-out test accuracy
+- The fixed-split GCN-3 ensemble exceeded the 0.95 test-R2 target; broader multi-split validation later showed only a modest prediction-set mean improvement
+- Multi-split ensemble validation produced mean test R2 = 0.9456, effectively identical to the single-model GCN-3 mean
+- The ensemble's confirmed benefit is improved stability: lower test-R2 variance, a better worst split, and a modestly better prediction-set mean
+- The 0.95 threshold was exceeded on two individual splits, but not as a cross-split mean
+- Use the ensemble as the high-reliability configuration and plain GCN-3 as the compute-efficient configuration
+- Move effort next into error-distribution and data-distribution analysis rather than more optimizer, loss, or local architecture sweeps
 
