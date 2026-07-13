@@ -1,0 +1,79 @@
+{
+  "config": {
+    "split_seeds": [
+      11,
+      42,
+      73,
+      101,
+      202
+    ],
+    "stiffness_bins": 5,
+    "feature_bins": 5,
+    "uncertainty_bins": 5,
+    "worst_case_count": 25,
+    "output_group": "gcn3_ensemble_residual_analysis"
+  },
+  "mean_metrics_by_dataset": {
+    "Prediction": {
+      "MAE": 0.0025218,
+      "RMSE": 0.00295876,
+      "Bias": -0.00182797,
+      "R2": 0.4577641
+    },
+    "Test": {
+      "MAE": 0.00231535,
+      "RMSE": 0.00288515,
+      "Bias": 0.00012587,
+      "R2": 0.94563096
+    }
+  },
+  "hardest_stiffness_bin_by_dataset": {
+    "Prediction": {
+      "stiffness_bin": "Q3",
+      "rmse": 0.0033307090033145893
+    },
+    "Test": {
+      "stiffness_bin": "Q3",
+      "rmse": 0.0034292672431345786
+    }
+  },
+  "strongest_absolute_error_feature_by_dataset": {
+    "Prediction": {
+      "feature": "Randomness_Value",
+      "spearman_abs_error": 0.41661356894186874
+    },
+    "Test": {
+      "feature": "Graph_Density",
+      "spearman_abs_error": -0.17664171126387956
+    }
+  },
+  "largest_prediction_distribution_shift": {
+    "feature": "Actual_Stiffness",
+    "mean_absolute_standardized_difference": 0.9786579803193914
+  },
+  "uncertainty_error_correlations": [
+    {
+      "Dataset": "Prediction",
+      "Pearson_Uncertainty_vs_Abs_Error": 0.04070554521942057,
+      "Spearman_Uncertainty_vs_Abs_Error": 0.012194055944055945,
+      "Pearson_Range_vs_Abs_Error": 0.008403097125921079
+    },
+    {
+      "Dataset": "Test",
+      "Pearson_Uncertainty_vs_Abs_Error": 0.013869730454641812,
+      "Spearman_Uncertainty_vs_Abs_Error": -0.009475333901335604,
+      "Pearson_Range_vs_Abs_Error": 0.031623136000779144
+    }
+  ],
+  "stiffness_bin_edges": [
+    null,
+    0.0115365716785505,
+    0.02215254186834966,
+    0.03213919187979628,
+    0.036350187584757825,
+    null
+  ],
+  "train_root": "/content/NSF-REU-Summer-26/active_projects/voronoi_lattice_pipeline/source_archives/lattice_data/Randomness_Sweep",
+  "predict_root": "/content/NSF-REU-Summer-26/active_projects/voronoi_lattice_pipeline/datasets/Lattice_Guess_Prediction_Input_Data",
+  "ensemble_run_dir": "/content/NSF-REU-Summer-26/active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_ensemble_multi_split/run_resumable_v1"
+}
