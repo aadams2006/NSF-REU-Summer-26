@@ -56,6 +56,7 @@ class ArchitectureConfig:
     split_seed: int | None = None
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     output_group: str = "architecture_comparison"
+    checkpoint_interval: int = 50
 
     @property
     def total_epochs(self) -> int:
@@ -72,6 +73,16 @@ class ArchitectureConfig:
     @property
     def effective_split_seed(self) -> int:
         return self.seed if self.split_seed is None else self.split_seed
+
+
+@dataclass
+class PreparedArchitectureData:
+    train_data: list[Data]
+    val_data: list[Data]
+    test_data: list[Data]
+    prediction_data: list[Data]
+    feature_scaler: StandardScaler
+    target_scaler: StandardScaler
 
 
 ARCHITECTURE_LABELS = {
@@ -335,7 +346,7 @@ def run_epoch(
     for batch in data_loader:
         batch = batch.to(device)
         if training:
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
 
         predictions = model(batch)
         loss = criterion(predictions, batch.y.view(-1, 1))
@@ -363,6 +374,8 @@ def train_target_normalized_model(
     train_loader,
     val_loader,
     config: ArchitectureConfig,
+    checkpoint_path: str | Path | None = None,
+    resume: bool = True,
 ) -> dict[str, float | list[float]]:
     model.to(config.device)
     criterion = build_loss_criterion(config)
@@ -371,6 +384,7 @@ def train_target_normalized_model(
         "train_losses": [],
         "val_losses": [],
         "best_val_loss": float("inf"),
+        "best_epoch": 0,
         "epochs_completed": 0,
     }
     best_state = deepcopy(model.state_dict())
@@ -380,25 +394,111 @@ def train_target_normalized_model(
         ("phase_2", config.lr_phase2, config.epochs_phase2),
     )
 
-    epochs_completed = 0
-    for phase_name, learning_rate, phase_epochs in phases:
+    checkpoint_file = Path(checkpoint_path) if checkpoint_path is not None else None
+    start_phase_index = 0
+    start_epoch_in_phase = 0
+    resumed_optimizer_state = None
+    resumed_stale_epochs = 0
+
+    checkpoint_config = {
+        "architecture_name": config.architecture_name,
+        "batch_size": config.batch_size,
+        "hidden_dim": config.hidden_dim,
+        "dropout": config.dropout,
+        "lr_phase1": config.lr_phase1,
+        "lr_phase2": config.lr_phase2,
+        "epochs_phase1": config.epochs_phase1,
+        "epochs_phase2": config.epochs_phase2,
+        "patience": config.patience,
+        "weight_decay": config.weight_decay,
+        "loss_name": config.loss_name,
+        "huber_beta": config.huber_beta,
+        "seed": config.seed,
+        "split_seed": config.effective_split_seed,
+    }
+
+    if resume and checkpoint_file is not None and checkpoint_file.is_file():
+        checkpoint = torch.load(checkpoint_file, map_location=config.device, weights_only=False)
+        if checkpoint.get("config") != checkpoint_config:
+            raise ValueError(
+                f"Checkpoint {checkpoint_file} does not match the current training configuration. "
+                "Use a new run directory or disable resume."
+            )
+        model.load_state_dict(checkpoint["model_state_dict"])
+        best_state = checkpoint["best_model_state_dict"]
+        history = checkpoint["history"]
+        if checkpoint.get("completed", False):
+            model.load_state_dict(best_state)
+            print(f"[{config.display_name}] Loaded completed training checkpoint {checkpoint_file}")
+            return history
+
+        start_phase_index = int(checkpoint["phase_index"])
+        start_epoch_in_phase = int(checkpoint["epoch_in_phase"])
+        resumed_optimizer_state = checkpoint.get("optimizer_state_dict")
+        resumed_stale_epochs = int(checkpoint.get("stale_epochs", 0))
+        torch.set_rng_state(checkpoint["torch_rng_state"].cpu())
+        if torch.cuda.is_available() and checkpoint.get("cuda_rng_state_all") is not None:
+            torch.cuda.set_rng_state_all(checkpoint["cuda_rng_state_all"])
+        epochs_completed = int(history["epochs_completed"])
+        print(
+            f"[{config.display_name}] Resuming at epoch {epochs_completed + 1}/{config.total_epochs} "
+            f"from {checkpoint_file}"
+        )
+    else:
+        epochs_completed = 0
+
+    def save_checkpoint(
+        phase_index: int,
+        epoch_in_phase: int,
+        optimizer: torch.optim.Optimizer | None,
+        stale_epochs: int,
+        completed: bool = False,
+    ) -> None:
+        if checkpoint_file is None:
+            return
+        checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "config": checkpoint_config,
+            "completed": completed,
+            "model_state_dict": model.state_dict(),
+            "best_model_state_dict": best_state,
+            "optimizer_state_dict": optimizer.state_dict() if optimizer is not None else None,
+            "history": history,
+            "phase_index": phase_index,
+            "epoch_in_phase": epoch_in_phase,
+            "stale_epochs": stale_epochs,
+            "torch_rng_state": torch.get_rng_state(),
+            "cuda_rng_state_all": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+        }
+        temporary_path = checkpoint_file.with_suffix(checkpoint_file.suffix + ".tmp")
+        torch.save(payload, temporary_path)
+        temporary_path.replace(checkpoint_file)
+
+    for phase_index, (phase_name, learning_rate, phase_epochs) in enumerate(phases):
+        if phase_index < start_phase_index:
+            continue
         optimizer = Adam(model.parameters(), lr=learning_rate, weight_decay=config.weight_decay)
-        stale_epochs = 0
+        epoch_start = start_epoch_in_phase if phase_index == start_phase_index else 0
+        stale_epochs = resumed_stale_epochs if phase_index == start_phase_index else 0
+        if phase_index == start_phase_index and resumed_optimizer_state is not None:
+            optimizer.load_state_dict(resumed_optimizer_state)
 
         print(
             f"[{config.display_name}] Starting {phase_name}: "
             f"lr={learning_rate}, epochs={phase_epochs}"
         )
-        for _ in range(phase_epochs):
+        for epoch_in_phase in range(epoch_start, phase_epochs):
             train_loss = run_epoch(model, train_loader, criterion, config.device, optimizer=optimizer)
             val_loss = run_epoch(model, val_loader, criterion, config.device)
 
             history["train_losses"].append(train_loss)
             history["val_losses"].append(val_loss)
             epochs_completed += 1
+            history["epochs_completed"] = epochs_completed
 
             if val_loss < history["best_val_loss"]:
                 history["best_val_loss"] = val_loss
+                history["best_epoch"] = epochs_completed
                 best_state = deepcopy(model.state_dict())
                 stale_epochs = 0
             else:
@@ -411,12 +511,19 @@ def train_target_normalized_model(
                     f"train={train_loss:.6f} val={val_loss:.6f}"
                 )
 
+            if config.checkpoint_interval > 0 and epochs_completed % config.checkpoint_interval == 0:
+                save_checkpoint(phase_index, epoch_in_phase + 1, optimizer, stale_epochs)
+                print(f"[{config.display_name}] Saved checkpoint at epoch {epochs_completed}")
+
             if stale_epochs >= config.patience:
                 print(f"[{config.display_name}] early stopping triggered during {phase_name}")
                 break
 
+        save_checkpoint(phase_index + 1, 0, None, 0)
+
     model.load_state_dict(best_state)
     history["epochs_completed"] = epochs_completed
+    save_checkpoint(len(phases), 0, None, 0, completed=True)
     return history
 
 
@@ -431,7 +538,7 @@ def evaluate_target_normalized_model(
 
     predictions: list[float] = []
     ground_truth: list[float] = []
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch in data_loader:
             batch = batch.to(device)
             batch_predictions = model(batch).cpu().numpy().ravel()
@@ -479,6 +586,61 @@ def predict_on_directory_target_normalized(
         }
     )
     return results, metrics
+
+
+def predict_on_prepared_data_target_normalized(
+    model: nn.Module,
+    prediction_data: list[Data],
+    target_scaler: StandardScaler,
+    batch_size: int,
+    device: str,
+) -> tuple[pd.DataFrame, dict[str, float]]:
+    loader = DataLoader(prediction_data, batch_size=batch_size, shuffle=False)
+    predictions, ground_truth, metrics = evaluate_target_normalized_model(
+        model,
+        loader,
+        target_scaler,
+        device=device,
+    )
+    results = pd.DataFrame(
+        {
+            "Lattice_Index": np.arange(len(predictions)),
+            "Predicted_Stiffness": predictions,
+            "Actual_Stiffness": ground_truth,
+            "Absolute_Error": np.abs(predictions - ground_truth),
+            "Percent_Difference": np.abs(predictions - ground_truth)
+            / np.clip(np.abs(ground_truth), a_min=np.finfo(np.float32).eps, a_max=None)
+            * 100.0,
+        }
+    )
+    return results, metrics
+
+
+def prepare_architecture_data(
+    train_root: str | Path,
+    predict_root: str | Path,
+    split_seed: int,
+    raw_train_data: list[Data] | None = None,
+    raw_prediction_data: list[Data] | None = None,
+) -> PreparedArchitectureData:
+    dataset = deepcopy(raw_train_data) if raw_train_data is not None else load_lattice_dataset(train_root)
+    train_data, val_data, test_data = split_dataset(dataset, seed=split_seed)
+    feature_scaler = normalize_feature_splits(train_data, val_data, test_data)
+    target_scaler = normalize_target_splits(train_data, val_data, test_data)
+
+    prediction_data = (
+        deepcopy(raw_prediction_data) if raw_prediction_data is not None else load_lattice_dataset(predict_root)
+    )
+    apply_feature_scaler(prediction_data, feature_scaler)
+    apply_target_scaler(prediction_data, target_scaler)
+    return PreparedArchitectureData(
+        train_data=train_data,
+        val_data=val_data,
+        test_data=test_data,
+        prediction_data=prediction_data,
+        feature_scaler=feature_scaler,
+        target_scaler=target_scaler,
+    )
 
 
 def build_training_history_figure(history: dict[str, float | list[float]], phase_1_epochs: int) -> plt.Figure:
@@ -534,6 +696,7 @@ def build_result_summary(
                 "Loss_Name": config.loss_name,
                 "Huber_Beta": config.huber_beta,
                 "Epochs_Completed": history["epochs_completed"],
+                "Best_Epoch": history["best_epoch"],
                 "Best_Val_Loss": history["best_val_loss"],
                 "Validation_RMSE": metrics_by_split["Validation"]["RMSE"],
                 "Validation_MAE": metrics_by_split["Validation"]["MAE"],
@@ -554,6 +717,10 @@ def run_architecture_experiment(
     train_root: str | Path | None = None,
     predict_root: str | Path | None = None,
     output_root: str | Path | None = None,
+    prepared_data: PreparedArchitectureData | None = None,
+    checkpoint_path: str | Path | None = None,
+    resume: bool = True,
+    run_dir: str | Path | None = None,
 ) -> dict[str, object]:
     set_seed(config.seed)
 
@@ -565,10 +732,17 @@ def run_architecture_experiment(
         train_root = Path(train_root)
         predict_root = Path(predict_root)
 
-    dataset = load_lattice_dataset(train_root)
-    train_data, val_data, test_data = split_dataset(dataset, seed=config.effective_split_seed)
-    feature_scaler = normalize_feature_splits(train_data, val_data, test_data)
-    target_scaler = normalize_target_splits(train_data, val_data, test_data)
+    if prepared_data is None:
+        prepared_data = prepare_architecture_data(
+            train_root,
+            predict_root,
+            split_seed=config.effective_split_seed,
+        )
+    train_data = prepared_data.train_data
+    val_data = prepared_data.val_data
+    test_data = prepared_data.test_data
+    feature_scaler = prepared_data.feature_scaler
+    target_scaler = prepared_data.target_scaler
     train_loader, val_loader, test_loader = create_data_loaders(
         train_data,
         val_data,
@@ -579,7 +753,14 @@ def run_architecture_experiment(
     input_dim = train_data[0].x.shape[1]
     graph_feature_dim = train_data[0].graph_attr.shape[1]
     model = build_model(config, input_dim=input_dim, graph_feature_dim=graph_feature_dim)
-    history = train_target_normalized_model(model, train_loader, val_loader, config)
+    history = train_target_normalized_model(
+        model,
+        train_loader,
+        val_loader,
+        config,
+        checkpoint_path=checkpoint_path,
+        resume=resume,
+    )
 
     metrics_by_split: dict[str, dict[str, float]] = {}
     split_outputs: dict[str, dict[str, np.ndarray]] = {}
@@ -602,17 +783,18 @@ def run_architecture_experiment(
         }
         split_results.append((split_name, predictions, ground_truth))
 
-    prediction_results, prediction_metrics = predict_on_directory_target_normalized(
+    prediction_results, prediction_metrics = predict_on_prepared_data_target_normalized(
         model,
-        predict_root,
-        feature_scaler,
+        prepared_data.prediction_data,
         target_scaler,
-        batch_size=1,
+        batch_size=config.batch_size,
         device=config.device,
     )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if output_root is None:
+    if run_dir is not None:
+        output_dir = Path(run_dir)
+    elif output_root is None:
         output_dir = (
             find_pipeline_root()
             / "gnn_prototype"

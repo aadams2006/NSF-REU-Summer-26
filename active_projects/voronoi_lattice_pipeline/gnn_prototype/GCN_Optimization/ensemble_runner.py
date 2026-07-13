@@ -10,8 +10,19 @@ import numpy as np
 import pandas as pd
 import torch
 
-from architecture_comparison_runner import ARCHITECTURE_LABELS, ArchitectureConfig, run_architecture_experiment
-from colab_gnn_stiffness_prototype import compute_regression_metrics, default_data_roots, find_pipeline_root
+from architecture_comparison_runner import (
+    ARCHITECTURE_LABELS,
+    ArchitectureConfig,
+    PreparedArchitectureData,
+    prepare_architecture_data,
+    run_architecture_experiment,
+)
+from colab_gnn_stiffness_prototype import (
+    compute_regression_metrics,
+    default_data_roots,
+    find_pipeline_root,
+    load_lattice_dataset,
+)
 
 
 @dataclass
@@ -33,6 +44,8 @@ class EnsembleConfig:
     huber_beta: float = 0.75
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     output_group: str = "gcn3_ensemble_fixed_split"
+    checkpoint_interval: int = 50
+    resume: bool = True
 
     @property
     def display_name(self) -> str:
@@ -59,6 +72,8 @@ class MultiSplitEnsembleConfig:
     huber_beta: float = 0.75
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     output_group: str = "gcn3_ensemble_multi_split"
+    checkpoint_interval: int = 50
+    resume: bool = True
 
     @property
     def display_name(self) -> str:
@@ -197,11 +212,103 @@ def build_ensemble_summary(
     )
 
 
+def _save_member_checkpoint(
+    checkpoint_dir: Path,
+    seed: int,
+    summary_row: dict[str, object],
+    output_dir: Path,
+    validation_output: dict[str, np.ndarray],
+    test_output: dict[str, np.ndarray],
+    prediction_frame: pd.DataFrame,
+) -> None:
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame([{**summary_row, "Output_Dir": str(output_dir)}]).to_csv(
+        checkpoint_dir / f"member_seed_{seed}_summary.csv",
+        index=False,
+    )
+
+    arrays_path = checkpoint_dir / f"member_seed_{seed}_outputs.npz"
+    temporary_path = arrays_path.with_suffix(".tmp.npz")
+    np.savez_compressed(
+        temporary_path,
+        validation_predictions=validation_output["predictions"],
+        validation_ground_truth=validation_output["ground_truth"],
+        test_predictions=test_output["predictions"],
+        test_ground_truth=test_output["ground_truth"],
+        prediction_predictions=prediction_frame["Predicted_Stiffness"].to_numpy(dtype=np.float32),
+        prediction_ground_truth=prediction_frame["Actual_Stiffness"].to_numpy(dtype=np.float32),
+    )
+    temporary_path.replace(arrays_path)
+
+
+def _load_member_checkpoint(
+    checkpoint_dir: Path,
+    seed: int,
+) -> tuple[dict[str, object], dict[str, np.ndarray], dict[str, np.ndarray], np.ndarray, np.ndarray] | None:
+    summary_path = checkpoint_dir / f"member_seed_{seed}_summary.csv"
+    arrays_path = checkpoint_dir / f"member_seed_{seed}_outputs.npz"
+    if not summary_path.is_file() or not arrays_path.is_file():
+        return None
+
+    summary_row = pd.read_csv(summary_path).iloc[0].to_dict()
+    with np.load(arrays_path) as arrays:
+        validation_output = {
+            "predictions": arrays["validation_predictions"].astype(np.float32),
+            "ground_truth": arrays["validation_ground_truth"].astype(np.float32),
+        }
+        test_output = {
+            "predictions": arrays["test_predictions"].astype(np.float32),
+            "ground_truth": arrays["test_ground_truth"].astype(np.float32),
+        }
+        prediction_predictions = arrays["prediction_predictions"].astype(np.float32)
+        prediction_ground_truth = arrays["prediction_ground_truth"].astype(np.float32)
+    return summary_row, validation_output, test_output, prediction_predictions, prediction_ground_truth
+
+
+def _load_completed_split(output_dir: Path) -> dict[str, object] | None:
+    required_paths = (
+        output_dir / "ensemble_complete.json",
+        output_dir / "gcn3_ensemble_summary.csv",
+        output_dir / "gcn3_ensemble_member_summary.csv",
+        output_dir / "gcn3_ensemble_metrics_summary.csv",
+        output_dir / "gcn3_ensemble_prediction_results.csv",
+    )
+    if not all(path.is_file() for path in required_paths):
+        return None
+    return {
+        "output_dir": output_dir,
+        "member_results": {},
+        "member_summary": pd.read_csv(required_paths[2]),
+        "ensemble_summary": pd.read_csv(required_paths[1]),
+        "ensemble_metrics_frame": pd.read_csv(required_paths[3], index_col=0),
+        "ensemble_prediction_results": pd.read_csv(required_paths[4]),
+    }
+
+
+def _validate_or_write_run_manifest(output_dir: Path, config: EnsembleConfig | MultiSplitEnsembleConfig) -> None:
+    manifest_path = output_dir / "resume_config.json"
+    config_payload = asdict(config)
+    for runtime_key in ("checkpoint_interval", "device", "output_group", "resume"):
+        config_payload.pop(runtime_key, None)
+
+    if config.resume and manifest_path.is_file():
+        saved_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if saved_payload != json.loads(json.dumps(config_payload)):
+            raise ValueError(
+                f"Existing checkpoints in {output_dir} use a different experiment configuration. "
+                "Change the run directory name to start a new experiment."
+            )
+        return
+    manifest_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
+
+
 def run_fixed_split_ensemble(
     config: EnsembleConfig,
     train_root: str | Path | None = None,
     predict_root: str | Path | None = None,
     output_root: str | Path | None = None,
+    prepared_data: PreparedArchitectureData | None = None,
+    run_dir: str | Path | None = None,
 ) -> dict[str, object]:
     if train_root is None or predict_root is None:
         default_train_root, default_predict_root = default_data_roots()
@@ -212,12 +319,16 @@ def run_fixed_split_ensemble(
         predict_root = Path(predict_root)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if output_root is None:
+    if run_dir is not None:
+        output_dir = Path(run_dir)
+    elif output_root is None:
         output_dir = find_pipeline_root() / "gnn_prototype" / "outputs" / config.output_group / f"run_{timestamp}"
     else:
         output_dir = Path(output_root) / f"run_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
+    _validate_or_write_run_manifest(output_dir, config)
     per_model_output_root = output_dir / "per_model"
+    checkpoint_dir = output_dir / "checkpoints"
 
     member_results: dict[int, dict[str, object]] = {}
     member_rows: list[dict[str, object]] = []
@@ -229,6 +340,19 @@ def run_fixed_split_ensemble(
     prediction_set_ground_truth: np.ndarray | None = None
 
     for member_seed in config.member_seeds:
+        saved_member = _load_member_checkpoint(checkpoint_dir, member_seed) if config.resume else None
+        if saved_member is not None:
+            row, validation_output, test_output, prediction_predictions, current_prediction_ground_truth = saved_member
+            member_results[member_seed] = {"output_dir": Path(str(row["Output_Dir"]))}
+            print(f"[{config.display_name}] Reusing completed member seed {member_seed}")
+        else:
+            if prepared_data is None:
+                prepared_data = prepare_architecture_data(
+                    train_root,
+                    predict_root,
+                    split_seed=config.split_seed,
+                )
+
         member_config = ArchitectureConfig(
             architecture_name=config.architecture_name,
             architecture_label=config.architecture_label or ARCHITECTURE_LABELS.get(config.architecture_name),
@@ -247,26 +371,41 @@ def run_fixed_split_ensemble(
             split_seed=config.split_seed,
             device=config.device,
             output_group=config.output_group,
+            checkpoint_interval=config.checkpoint_interval,
         )
-        result = run_architecture_experiment(
-            member_config,
-            train_root=train_root,
-            predict_root=predict_root,
-            output_root=per_model_output_root,
-        )
-        member_results[member_seed] = result
+        if saved_member is None:
+            result = run_architecture_experiment(
+                member_config,
+                train_root=train_root,
+                predict_root=predict_root,
+                prepared_data=prepared_data,
+                checkpoint_path=checkpoint_dir / f"member_seed_{member_seed}_training.pt",
+                resume=config.resume,
+                run_dir=per_model_output_root / f"member_seed_{member_seed}",
+            )
+            member_results[member_seed] = result
+            row = result["summary_frame"].iloc[0].to_dict()
+            row["Output_Dir"] = str(result["output_dir"])
+            validation_output = result["split_outputs"]["Validation"]
+            test_output = result["split_outputs"]["Test"]
+            prediction_frame = result["prediction_results"]
+            prediction_predictions = prediction_frame["Predicted_Stiffness"].to_numpy(dtype=np.float32)
+            current_prediction_ground_truth = prediction_frame["Actual_Stiffness"].to_numpy(dtype=np.float32)
+            _save_member_checkpoint(
+                checkpoint_dir,
+                member_seed,
+                row,
+                result["output_dir"],
+                validation_output,
+                test_output,
+                prediction_frame,
+            )
+            print(f"[{config.display_name}] Completed and checkpointed member seed {member_seed}")
 
-        row = result["summary_frame"].iloc[0].to_dict()
-        row["Output_Dir"] = str(result["output_dir"])
         member_rows.append(row)
-
-        validation_output = result["split_outputs"]["Validation"]
-        test_output = result["split_outputs"]["Test"]
-        prediction_frame = result["prediction_results"]
 
         current_val_ground_truth = validation_output["ground_truth"]
         current_test_ground_truth = test_output["ground_truth"]
-        current_prediction_ground_truth = prediction_frame["Actual_Stiffness"].to_numpy(dtype=np.float32)
 
         if val_ground_truth is None:
             val_ground_truth = current_val_ground_truth
@@ -279,7 +418,7 @@ def run_fixed_split_ensemble(
 
         val_predictions.append(validation_output["predictions"])
         test_predictions.append(test_output["predictions"])
-        prediction_set_predictions.append(prediction_frame["Predicted_Stiffness"].to_numpy(dtype=np.float32))
+        prediction_set_predictions.append(prediction_predictions)
 
     assert val_ground_truth is not None
     assert test_ground_truth is not None
@@ -354,6 +493,10 @@ def run_fixed_split_ensemble(
         ],
         save_path=prediction_plot_path,
     )
+    (output_dir / "ensemble_complete.json").write_text(
+        json.dumps({"completed": True, "member_seeds": list(config.member_seeds)}, indent=2),
+        encoding="utf-8",
+    )
 
     print(f"[{config.display_name}] Member summary")
     print(member_summary)
@@ -376,6 +519,7 @@ def run_multi_split_ensemble(
     train_root: str | Path | None = None,
     predict_root: str | Path | None = None,
     output_root: str | Path | None = None,
+    run_dir: str | Path | None = None,
 ) -> dict[str, object]:
     if train_root is None or predict_root is None:
         default_train_root, default_predict_root = default_data_roots()
@@ -386,15 +530,20 @@ def run_multi_split_ensemble(
         predict_root = Path(predict_root)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if output_root is None:
+    if run_dir is not None:
+        output_dir = Path(run_dir)
+    elif output_root is None:
         output_dir = find_pipeline_root() / "gnn_prototype" / "outputs" / config.output_group / f"run_{timestamp}"
     else:
         output_dir = Path(output_root) / f"run_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
+    _validate_or_write_run_manifest(output_dir, config)
 
     per_split_output_root = output_dir / "per_split"
     split_results: dict[int, dict[str, object]] = {}
     summary_rows: list[dict[str, object]] = []
+    raw_train_data = None
+    raw_prediction_data = None
 
     for split_seed in config.split_seeds:
         split_config = EnsembleConfig(
@@ -415,18 +564,41 @@ def run_multi_split_ensemble(
             huber_beta=config.huber_beta,
             device=config.device,
             output_group=config.output_group,
+            checkpoint_interval=config.checkpoint_interval,
+            resume=config.resume,
         )
-        result = run_fixed_split_ensemble(
-            split_config,
-            train_root=train_root,
-            predict_root=predict_root,
-            output_root=per_split_output_root,
-        )
+        split_run_dir = per_split_output_root / f"split_seed_{split_seed}"
+        result = _load_completed_split(split_run_dir) if config.resume else None
+        if result is not None:
+            print(f"[{config.display_name}] Reusing completed split seed {split_seed}")
+        else:
+            if raw_train_data is None:
+                print(f"[{config.display_name}] Loading graph files once for all remaining splits")
+                raw_train_data = load_lattice_dataset(train_root)
+                raw_prediction_data = load_lattice_dataset(predict_root)
+            prepared_data = prepare_architecture_data(
+                train_root,
+                predict_root,
+                split_seed=split_seed,
+                raw_train_data=raw_train_data,
+                raw_prediction_data=raw_prediction_data,
+            )
+            result = run_fixed_split_ensemble(
+                split_config,
+                train_root=train_root,
+                predict_root=predict_root,
+                prepared_data=prepared_data,
+                run_dir=split_run_dir,
+            )
         split_results[split_seed] = result
 
         row = result["ensemble_summary"].iloc[0].to_dict()
         row["Output_Dir"] = str(result["output_dir"])
         summary_rows.append(row)
+        pd.DataFrame(summary_rows).sort_values("Split_Seed").to_csv(
+            output_dir / "gcn3_ensemble_multi_split_progress.csv",
+            index=False,
+        )
 
     summary_frame = pd.DataFrame(summary_rows).sort_values("Split_Seed").reset_index(drop=True)
     metric_columns = [
