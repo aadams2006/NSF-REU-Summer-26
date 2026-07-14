@@ -844,6 +844,70 @@ Promotion rule:
 - Only reopen feature engineering or architecture work if the OOD experiment identifies a targeted intervention.
 
 
+Phase 21: OOD-style validation and domain-weighted training setup
+------------------------------------------------------------------
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/ood_validation_runner.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_gcn3_ood_validation_baseline.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_gcn3_ood_domain_weighting.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_ood_domain_weighting/GCN_Cloud_Notebook_GCN3_OOD_Domain_Weighting.ipynb
+
+Experiment design:
+- use only existing source and prediction lattice files
+- keep the current best plain GCN-3 architecture and Adam schedule fixed
+- construct the OOD holdout using structural inputs only:
+  - randomness value
+  - node count
+  - graph density
+  - degree variability
+  - mean center distance
+  - center-distance variability
+- standardize those features using source-dataset statistics
+- calculate each source lattice's nearest standardized distance to the prediction domain
+- reserve the closest 10 percent of source lattices as a prediction-like OOD holdout
+- reserve a separate random 10 percent validation set
+- train on the remaining 80 percent
+
+Controlled variants:
+- control:
+  - standard unweighted MSE training
+- domain_weighted:
+  - identical data partition, initialization seed, architecture, optimizer, and schedule
+  - increase training loss weights for source samples structurally closer to the prediction domain
+  - normalize weights to mean 1.0
+
+Data-leakage controls:
+- actual stiffness is not used to create the OOD partition or training weights
+- prediction-set labels are not used for training, early stopping, weighting, or model selection
+- the 13 prediction lattices remain an external evaluation set
+- both model variants use the same random seed and partition
+
+Validation of the setup:
+- end-to-end smoke testing passed on all 1,000 source lattices and 13 prediction lattices
+- partition counts were verified:
+  - training: 800
+  - validation: 100
+  - OOD holdout: 100
+- the OOD holdout mean stiffness was 0.03689, closely matching the prediction-set mean of 0.03682
+- this target similarity emerged from structural selection and was not used as a selection input
+- sample weights, model training, checkpoints, resume behavior, evaluation, comparison tables, and figures were all exercised
+- smoke-test model metrics are not promotion evidence because the validation run used only two epochs
+
+Saved outputs:
+- OOD partition assignments and structural-feature summaries
+- control and weighted model checkpoints
+- per-variant train, validation, OOD-holdout, and prediction metrics
+- signed bias for every evaluation dataset
+- per-sample predictions and residuals
+- weighted-minus-control metric deltas
+- partition diagnostics, training histories, and comparison figures
+
+Promotion rule:
+- promote domain weighting only if it improves OOD-holdout and external prediction RMSE, MAE, bias, and R2 without a material validation regression
+- treat a prediction-only gain without OOD-holdout improvement as inconclusive because the prediction set contains only 13 samples
+- if the initial weighted run is promising, validate the result across multiple model seeds before promotion
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -884,6 +948,7 @@ Current assessment
 28. The prediction model has a systematic negative prediction-set bias of approximately -0.00183.
 29. Ensemble disagreement does not identify high-error cases, so increasing ensemble size is not the next priority.
 30. The next formal experiment should use an OOD-style validation split and distribution-aware training weights constructed only from the existing source lattices.
+31. The OOD control-versus-domain-weighted experiment is now implemented as a resumable standalone Colab workflow and is ready for the initial single-seed run.
 
 
 Optimization methods to abandon
@@ -928,7 +993,7 @@ Recommended next steps
 5. Keep plain GCN-3 as the compute-efficient mean test-accuracy reference across varying splits.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
 7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
-8. Replace the random-only promotion protocol with an additional OOD-style validation split constructed from existing source lattices that resemble the prediction domain:
+8. Run the prepared OOD control-versus-domain-weighted notebook using the prediction-like holdout constructed from existing source lattices:
    - lower randomness values relative to the source mean
    - higher graph density and degree
    - higher edge count and total edge weight
@@ -943,6 +1008,7 @@ Recommended next steps
 14. Report prediction-set MAE, RMSE, signed bias, and target standard deviation alongside R2.
 15. Keep the 13 prediction lattices external to training and hyperparameter selection unless they are explicitly divided into separate calibration and test subsets.
 16. Do not prioritize larger ensembles as an error-detection method; member disagreement is not correlated with the observed residuals.
+17. If domain weighting improves both OOD-holdout and prediction metrics, prepare multi-seed validation before promotion.
 
 
 Bottom line
@@ -971,5 +1037,6 @@ The optimizer investigation is largely settled for the current representation:
 - The prediction set shows systematic underprediction with mean bias near -0.00183
 - Ensemble disagreement does not track error, so more ensemble members are unlikely to solve the remaining problem
 - The next formal experiment is an OOD-style validation split followed by distribution-aware weighting using existing source lattices
+- The OOD control-versus-domain-weighted experiment is implemented and ready for its initial single-seed Colab run
 - Continue to avoid broad optimizer, loss, and local architecture sweeps unless the OOD analysis identifies a targeted reason to reopen them
 
