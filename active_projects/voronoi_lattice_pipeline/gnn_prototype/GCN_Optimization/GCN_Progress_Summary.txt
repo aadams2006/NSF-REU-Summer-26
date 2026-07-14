@@ -908,6 +908,94 @@ Promotion rule:
 - if the initial weighted run is promising, validate the result across multiple model seeds before promotion
 
 
+Phase 22: Initial OOD weighting result and multi-seed validation setup
+--------------------------------------------------------------------
+Initial result source:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_ood_domain_weighting/run_ood_weighting_v1
+
+Initial result configuration:
+- model and partition seed: 42
+- OOD holdout: 100 source lattices
+- ordinary validation: 100 source lattices
+- training: 800 source lattices
+- external prediction set: 13 lattices
+- weighting strength: 2.0
+
+Control metrics:
+- validation R2: 0.944745
+- validation RMSE: 0.002774
+- validation MAE: 0.002275
+- OOD-holdout R2: 0.345012
+- OOD-holdout RMSE: 0.002480
+- OOD-holdout MAE: 0.002120
+- prediction R2: 0.378258
+- prediction RMSE: 0.003170
+- prediction MAE: 0.002661
+- prediction bias: -0.001930
+
+Domain-weighted metrics:
+- validation R2: 0.946219
+- validation RMSE: 0.002737
+- validation MAE: 0.002203
+- OOD-holdout R2: 0.380433
+- OOD-holdout RMSE: 0.002412
+- OOD-holdout MAE: 0.002046
+- prediction R2: 0.478631
+- prediction RMSE: 0.002903
+- prediction MAE: 0.002452
+- prediction bias: -0.001709
+
+Weighted-minus-control changes:
+- validation R2: +0.001474
+- validation RMSE: -1.34 percent
+- validation MAE: -3.15 percent
+- OOD-holdout R2: +0.035420
+- OOD-holdout RMSE: -2.74 percent
+- OOD-holdout MAE: -3.49 percent
+- prediction R2: +0.100373
+- prediction RMSE: -8.43 percent
+- prediction MAE: -7.86 percent
+- prediction bias magnitude: -11.4 percent
+- training R2: -0.003138
+
+Paired-sample findings:
+- validation absolute error improved for 52 of 100 samples
+- OOD-holdout absolute error improved for 60 of 100 samples
+- external prediction absolute error improved for 8 of 13 samples
+- median external absolute-error reduction: 0.000284
+- maximum external absolute error decreased from 0.007221 to 0.006456
+- the gain was distributed across multiple prediction lattices rather than being caused by one outlier
+
+Interpretation:
+- this is the strongest initial evidence so far that the remaining error is responsive to distribution-aware training
+- OOD holdout and external prediction performance improved together, while ordinary validation also improved slightly
+- the small training-fit decline is consistent with capacity shifting away from the generic source distribution toward the target-like domain
+- OOD-holdout R2 remains low and prediction underbias remains unresolved
+- 11 of 13 external lattices are still underpredicted
+- because this is one model seed and the external set has only 13 samples, domain weighting is promising but is not yet promoted
+
+Multi-seed validation artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/ood_multi_seed_runner.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_gcn3_ood_domain_weighting_multi_seed.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_ood_domain_weighting_multi_seed/GCN_Cloud_Notebook_GCN3_OOD_Domain_Weighting_Multi_Seed.ipynb
+
+Multi-seed design:
+- hold partition seed 42 fixed so every model sees identical train, validation, and OOD samples
+- compare paired control and domain-weighted models at model seeds 11, 42, 73, 101, and 202
+- keep weight strength 2.0 and all architecture and optimizer settings fixed
+- load graph files once for the full experiment
+- checkpoint and resume each seed and variant independently
+- save incremental progress after every completed seed
+- aggregate mean, standard deviation, minimum, and maximum metrics by variant
+- save weighted-minus-control deltas for every seed
+- save paired per-lattice error reductions and comparison figures
+
+Decision rule:
+- promote domain weighting only if OOD and external prediction improvements recur across seeds without a material mean validation regression
+- do not sweep weighting strength until seed stability is established
+- if multi-seed validation succeeds, test the promoted setting across several OOD partition seeds next
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -948,7 +1036,9 @@ Current assessment
 28. The prediction model has a systematic negative prediction-set bias of approximately -0.00183.
 29. Ensemble disagreement does not identify high-error cases, so increasing ensemble size is not the next priority.
 30. The next formal experiment should use an OOD-style validation split and distribution-aware training weights constructed only from the existing source lattices.
-31. The OOD control-versus-domain-weighted experiment is now implemented as a resumable standalone Colab workflow and is ready for the initial single-seed run.
+31. The initial domain-weighted run improved validation, OOD-holdout, and external prediction metrics simultaneously.
+32. Domain weighting is now the leading candidate for the next model improvement, but it remains provisional until fixed-partition multi-seed validation is complete.
+33. The fixed-partition five-seed control-versus-weighted validation is implemented with resumable checkpoints and paired per-lattice analysis.
 
 
 Optimization methods to abandon
@@ -993,13 +1083,9 @@ Recommended next steps
 5. Keep plain GCN-3 as the compute-efficient mean test-accuracy reference across varying splits.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
 7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
-8. Run the prepared OOD control-versus-domain-weighted notebook using the prediction-like holdout constructed from existing source lattices:
-   - lower randomness values relative to the source mean
-   - higher graph density and degree
-   - higher edge count and total edge weight
-   - moderately shifted node count
+8. Run the prepared fixed-partition OOD multi-seed notebook using model seeds 11, 42, 73, 101, and 202.
 9. Use the multi-split validated plain GCN-3 ensemble when lower split sensitivity and better worst-case behavior justify training and serving five models.
-10. Test distribution-aware source-sample weighting after establishing the OOD-style validation baseline.
+10. Keep domain weighting strength fixed at 2.0 until the multi-seed comparison establishes whether the initial gain is stable.
 11. After architecture or evaluation-strategy changes, compare only:
    - Adam baseline
    - AdamW sanity check
@@ -1008,7 +1094,7 @@ Recommended next steps
 14. Report prediction-set MAE, RMSE, signed bias, and target standard deviation alongside R2.
 15. Keep the 13 prediction lattices external to training and hyperparameter selection unless they are explicitly divided into separate calibration and test subsets.
 16. Do not prioritize larger ensembles as an error-detection method; member disagreement is not correlated with the observed residuals.
-17. If domain weighting improves both OOD-holdout and prediction metrics, prepare multi-seed validation before promotion.
+17. If domain weighting improves both OOD-holdout and prediction metrics across model seeds, validate it across multiple OOD partition seeds before final promotion.
 
 
 Bottom line
@@ -1036,7 +1122,9 @@ The optimizer investigation is largely settled for the current representation:
 - Prediction RMSE is only modestly worse than test RMSE, and the prediction R2 collapse is amplified by much lower target variance
 - The prediction set shows systematic underprediction with mean bias near -0.00183
 - Ensemble disagreement does not track error, so more ensemble members are unlikely to solve the remaining problem
-- The next formal experiment is an OOD-style validation split followed by distribution-aware weighting using existing source lattices
-- The OOD control-versus-domain-weighted experiment is implemented and ready for its initial single-seed Colab run
+- The initial OOD control-versus-domain-weighted run improved ordinary validation, OOD holdout, and external prediction metrics together
+- Domain weighting reduced external prediction RMSE by 8.43 percent and increased prediction R2 from 0.3783 to 0.4786 on seed 42
+- The result is promising but remains single-seed evidence, and systematic external underprediction persists
+- A fixed-partition five-seed control-versus-weighted validation is implemented as a resumable Colab workflow and is the next formal experiment
 - Continue to avoid broad optimizer, loss, and local architecture sweeps unless the OOD analysis identifies a targeted reason to reopen them
 
