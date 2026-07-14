@@ -1,0 +1,40 @@
+{
+  "model_seeds": [
+    11,
+    42,
+    73,
+    101,
+    202
+  ],
+  "partition_seed": 42,
+  "variants": [
+    "control",
+    "domain_weighted"
+  ],
+  "ood_fraction": 0.1,
+  "validation_fraction": 0.1,
+  "weight_strength": 2.0,
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "patience": 150,
+  "weight_decay": 1e-05,
+  "checkpoint_interval": 50,
+  "device": "cuda",
+  "resume": true,
+  "output_group": "gcn3_ood_domain_weighting_multi_seed",
+  "domain_features": [
+    "Randomness_Value",
+    "Node_Count",
+    "Graph_Density",
+    "Std_Degree",
+    "Mean_Center_Distance",
+    "Std_Center_Distance"
+  ],
+  "train_root": "/content/NSF-REU-Summer-26/active_projects/voronoi_lattice_pipeline/source_archives/lattice_data/Randomness_Sweep",
+  "predict_root": "/content/NSF-REU-Summer-26/active_projects/voronoi_lattice_pipeline/datasets/Lattice_Guess_Prediction_Input_Data"
+}

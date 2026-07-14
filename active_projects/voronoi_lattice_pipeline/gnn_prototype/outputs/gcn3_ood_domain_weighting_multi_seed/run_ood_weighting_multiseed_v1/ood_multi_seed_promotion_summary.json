@@ -1,0 +1,64 @@
+{
+  "model_seed_count": 5,
+  "weighted_seed_wins": {
+    "Validation_R2": 5,
+    "Validation_RMSE": 5,
+    "OOD_Holdout_R2": 3,
+    "OOD_Holdout_RMSE": 3,
+    "Prediction_R2": 2,
+    "Prediction_RMSE": 2
+  },
+  "mean_metrics": {
+    "control": {
+      "Validation_R2": 0.9472614884376526,
+      "Validation_RMSE": 0.002709874775669199,
+      "Validation_MAE": 0.002184355864301324,
+      "Validation_Bias": 5.893554771319032e-05,
+      "OOD_Holdout_R2": 0.34123404026031495,
+      "OOD_Holdout_RMSE": 0.0024867680830137568,
+      "OOD_Holdout_MAE": 0.002109190169721842,
+      "OOD_Holdout_Bias": 9.284049374400639e-05,
+      "Prediction_R2": 0.44103126525878905,
+      "Prediction_RMSE": 0.003000198745837182,
+      "Prediction_MAE": 0.0025334205478429795,
+      "Prediction_Bias": -0.001858404721133411
+    },
+    "domain_weighted": {
+      "Validation_R2": 0.9485252618789672,
+      "Validation_RMSE": 0.002677146087783693,
+      "Validation_MAE": 0.0021652095019817352,
+      "Validation_Bias": -3.127809650322888e-05,
+      "OOD_Holdout_R2": 0.3441560983657837,
+      "OOD_Holdout_RMSE": 0.0024811674375735606,
+      "OOD_Holdout_MAE": 0.002094966545701027,
+      "OOD_Holdout_Bias": -0.00020552632049657403,
+      "Prediction_R2": 0.38367433547973634,
+      "Prediction_RMSE": 0.0031490378909197455,
+      "Prediction_MAE": 0.002708949288353324,
+      "Prediction_Bias": -0.0021125780651345847
+    }
+  },
+  "paired_error_totals": {
+    "OOD_Holdout": {
+      "Sample_Count": 500,
+      "Improved_Count": 260,
+      "Worsened_Count": 240
+    },
+    "Prediction": {
+      "Sample_Count": 65,
+      "Improved_Count": 26,
+      "Worsened_Count": 39
+    },
+    "Train": {
+      "Sample_Count": 4000,
+      "Improved_Count": 1893,
+      "Worsened_Count": 2107
+    },
+    "Validation": {
+      "Sample_Count": 500,
+      "Improved_Count": 265,
+      "Worsened_Count": 235
+    }
+  },
+  "interpretation_rule": "Promote only if OOD and prediction improvements recur across seeds without a material mean validation regression. Confirm across multiple OOD partitions afterward."
+}
