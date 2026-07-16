@@ -1,0 +1,7 @@
+Dataset,Sample_Count,Improved_Count,Mean_Absolute_Error_Reduction,Median_Absolute_Error_Reduction
+Adaptation_Train,40,25,9.37175e-05,0.0001817923
+Adaptation_Validation,10,6,0.00010952018,0.0002656188
+OOD_Evaluation,50,24,2.103001e-06,-3.4682453e-05
+Prediction,13,8,0.00011650201,0.00012350827
+Train,800,416,2.3716013e-05,4.8892573e-05
+Validation,100,48,2.8169641e-05,-5.8302656e-05
