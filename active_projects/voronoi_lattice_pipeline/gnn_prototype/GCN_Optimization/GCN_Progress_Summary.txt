@@ -1110,6 +1110,87 @@ Promotion rule:
 - if the initial pass succeeds, validate the fixed configuration across model seeds before considering deployment
 
 
+Phase 25: Initial OOD domain-adaptation result
+------------------------------------------------
+Source:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_ood_domain_adaptation/run_ood_domain_adaptation_v1
+
+Completion:
+- control and domain-adapted variants completed successfully at seed 42
+- base training used 800 generic training lattices
+- fine-tuning used 40 adaptation-training lattices repeated four times with generic-data replay
+- checkpoint selection used 100 ordinary-validation and 10 adaptation-validation lattices
+- final OOD evaluation used 50 untouched prediction-like source lattices
+- all 13 external prediction lattices remained excluded from training and checkpoint selection
+
+Control metrics:
+- validation R2: 0.944919
+- validation RMSE: 0.002770
+- validation MAE: 0.002273
+- OOD-evaluation R2: 0.361554
+- OOD-evaluation RMSE: 0.002299
+- OOD-evaluation MAE: 0.001940
+- OOD-evaluation bias: -0.000030
+- prediction R2: 0.376417
+- prediction RMSE: 0.003174
+- prediction MAE: 0.002684
+- prediction bias: -0.001986
+
+Domain-adapted metrics:
+- validation R2: 0.944302
+- validation RMSE: 0.002785
+- validation MAE: 0.002245
+- OOD-evaluation R2: 0.373064
+- OOD-evaluation RMSE: 0.002278
+- OOD-evaluation MAE: 0.001938
+- OOD-evaluation bias: -0.000212
+- prediction R2: 0.449124
+- prediction RMSE: 0.002984
+- prediction MAE: 0.002568
+- prediction bias: -0.001920
+
+Adapted-minus-control changes:
+- validation R2: -0.000618
+- validation RMSE: +0.56 percent
+- validation MAE: -1.24 percent
+- OOD-evaluation R2: +0.011510
+- OOD-evaluation RMSE: -0.91 percent
+- OOD-evaluation MAE: -0.11 percent
+- prediction R2: +0.072707
+- prediction RMSE: -6.01 percent
+- prediction MAE: -4.34 percent
+- prediction bias magnitude: -3.33 percent
+
+Paired-sample findings:
+- adaptation-training absolute error improved for 25 of 40 samples
+- adaptation-validation absolute error improved for 6 of 10 samples
+- untouched OOD absolute error improved for 24 of 50 samples
+- external prediction absolute error improved for 8 of 13 samples
+- median untouched-OOD error reduction was negative: -0.0000347
+- median external error reduction was positive: +0.000124
+
+Training behavior:
+- the best adapted checkpoint occurred at fine-tuning epoch 3
+- fine-tuning stopped after 33 epochs
+- this indicates that a small update to the established representation was useful, while prolonged adaptation was not
+- ordinary validation performance remained effectively stable
+
+Interpretation:
+- explicit adaptation is more promising than indirect domain weighting because it produced a substantial external gain without materially damaging ordinary validation
+- OOD R2 and RMSE moved in the same favorable direction as external prediction, providing some independent support for the result
+- the untouched-OOD improvement was nevertheless small and not broadly distributed across samples
+- OOD MAE was effectively unchanged, only 24 of 50 OOD samples improved, and OOD bias became more negative
+- the strict single-run promotion rule was therefore not fully met
+- prediction R2 of 0.4491 is near the prior ensemble range rather than a new overall performance ceiling
+- the result supports the conclusion that remaining error is driven primarily by domain alignment rather than optimizer or architecture capacity
+
+Decision:
+- do not promote the adapted model from this single seed
+- preserve the exact adaptation configuration for fixed-partition multi-seed verification
+- require repeatable OOD and external improvements without a material validation regression
+- if model-seed validation succeeds, vary the adaptation split seed to test sensitivity to which 40 prediction-like lattices are used
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -1154,8 +1235,12 @@ Current assessment
 32. Weight strength 2.0 improves ordinary validation but worsens mean external prediction performance and prediction bias.
 33. Domain weighting is not promoted, and multiple partition validation is not justified for the failed configuration.
 34. OOD-only bias and affine calibration worsen cross-validated OOD RMSE and are not supported as the next formal direction.
-35. Explicit adaptation using a small labeled subset of existing prediction-like source lattices is now the highest-value experiment.
-36. The initial domain-adaptation workflow is implemented as a single-seed, leakage-controlled, resumable Colab experiment.
+35. Explicit adaptation using a small labeled subset of existing prediction-like source lattices is more promising than indirect sample weighting.
+36. The initial adapted model improved external prediction R2 from 0.3764 to 0.4491 and reduced external RMSE by approximately 6.0 percent.
+37. Ordinary validation remained effectively stable, so the external gain was not purchased through a major in-distribution regression.
+38. Untouched-OOD support is positive but weak: R2 and RMSE improved slightly, while MAE was unchanged and bias worsened.
+39. The adapted model is not yet promoted because the result is single-seed and only 24 of 50 untouched-OOD samples improved.
+40. Fixed-partition multi-seed verification of the exact adaptation configuration is now the highest-value next experiment.
 
 
 Optimization methods to abandon
@@ -1200,7 +1285,7 @@ Recommended next steps
 5. Keep plain GCN-3 as the compute-efficient mean test-accuracy reference across varying splits.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
 7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
-8. Run the prepared single-seed OOD domain-adaptation notebook.
+8. Prepare and run fixed-partition multi-seed verification of the exact domain-adaptation configuration.
 9. Use the multi-split validated plain GCN-3 ensemble when lower split sensitivity and better worst-case behavior justify training and serving five models.
 10. Do not promote weight strength 2.0 or spend compute on multiple OOD partition seeds for that failed configuration.
 11. After architecture or evaluation-strategy changes, compare only:
@@ -1211,7 +1296,7 @@ Recommended next steps
 14. Report prediction-set MAE, RMSE, signed bias, and target standard deviation alongside R2.
 15. Keep the 13 prediction lattices external to training and hyperparameter selection unless they are explicitly divided into separate calibration and test subsets.
 16. Do not prioritize larger ensembles as an error-detection method; member disagreement is not correlated with the observed residuals.
-17. If explicit domain adaptation improves ordinary validation, untouched OOD evaluation, and external prediction together, prepare fixed-partition multi-seed verification.
+17. If domain adaptation reproduces across model seeds, vary the adaptation split seed before final promotion.
 
 
 Bottom line
@@ -1245,7 +1330,11 @@ The optimizer investigation is largely settled for the current representation:
 - A five-model weighted ensemble also underperformed the corresponding control ensemble on external prediction
 - Domain weighting strength 2.0 is rejected as a replacement for the unweighted GCN-3
 - Leakage-controlled OOD calibration screening did not support bias or affine post-processing
-- The next formal experiment is explicit domain adaptation using 40 existing prediction-like source lattices while preserving 50 untouched OOD evaluation lattices
-- The single-seed domain-adaptation experiment is implemented as a resumable standalone Colab workflow
+- The initial explicit domain-adaptation run improved external prediction R2 from 0.3764 to 0.4491 and reduced prediction RMSE by approximately 6.0 percent
+- Ordinary validation remained stable and untouched-OOD R2 improved by 0.0115, supporting domain alignment as the remaining modeling issue
+- Untouched-OOD MAE was effectively unchanged, OOD bias worsened, and only 24 of 50 OOD samples improved
+- The adapted model is promising but not promoted from one seed
+- The next formal experiment is fixed-partition multi-seed verification of the exact adaptation configuration
+- If model-seed verification succeeds, test sensitivity to which existing prediction-like source lattices are assigned to adaptation training
 - Continue to avoid broad optimizer, loss, and local architecture sweeps unless the OOD analysis identifies a targeted reason to reopen them
 
