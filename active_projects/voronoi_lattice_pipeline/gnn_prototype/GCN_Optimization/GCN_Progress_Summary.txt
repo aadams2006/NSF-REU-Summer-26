@@ -1191,6 +1191,76 @@ Decision:
 - if model-seed validation succeeds, vary the adaptation split seed to test sensitivity to which 40 prediction-like lattices are used
 
 
+Phase 26: Optimization closure and final ensemble uncertainty run
+------------------------------------------------------------------
+Overall optimization conclusion:
+- the optimization question is considered largely settled for the present dataset and project scope
+- the practical optimum is the five-member plain GCN-3 ensemble using:
+  - weighted edges
+  - richer node features
+  - graph-level summary features
+  - target normalization
+  - three plain GCN layers
+  - Adam with the established two-phase schedule
+  - member seeds 11, 42, 73, 101, and 202
+- the single plain GCN-3 remains the preferred compute-efficient alternative
+- optimizer, architecture, depth, residual, loss, feature, normalization, ensemble-size, weighting, calibration, and limited adaptation changes have produced either negligible, unstable, or non-generalizing gains beyond this point
+- the dominant remaining bottleneck is training-domain coverage rather than model capacity or local hyperparameter choice
+- substantially expanding performance would most plausibly require additional representative labeled training data
+- generating new lattice training sets is outside the current optimization objective
+
+Status of domain adaptation:
+- the seed-42 result remains scientifically interesting but unverified
+- its external gain did not establish a new overall performance ceiling
+- OOD support was weak and the strict promotion criteria were not met
+- multi-seed adaptation validation is de-prioritized under the decision to close optimization
+- adaptation can be reopened later only if the project scope expands toward domain-specific training
+
+PI-requested final characterization:
+- run the confirmed five-member GCN-3 ensemble one final time on fixed split seed 42
+- retain resumable per-member training checkpoints
+- report ensemble performance and uncertainty for validation, test, and external prediction samples
+- this run characterizes the selected model; it is not another optimizer or architecture search
+
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/ensemble_uncertainty_runner.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_gcn3_ensemble_uncertainty.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_ensemble_uncertainty/GCN_Cloud_Notebook_GCN3_Ensemble_Uncertainty.ipynb
+
+Per-sample uncertainty outputs:
+- ensemble mean and median prediction
+- sample standard deviation across the five members
+- standard error of the ensemble mean
+- member minimum, maximum, and range
+- relative member standard deviation
+- Student-t 80, 90, and 95 percent confidence intervals for the ensemble mean
+- actual-target inclusion flags for each interval where labels are available
+- every member prediction
+- every member's signed, absolute, and standardized deviation from the ensemble mean
+
+Aggregate uncertainty outputs:
+- empirical coverage of each nominal confidence interval by dataset
+- mean and maximum member disagreement
+- mean confidence-interval width
+- Pearson and Spearman correlations between member standard deviation and absolute error
+- per-member deviation summaries
+- confidence-interval, uncertainty-versus-error, and external member-deviation figures
+- a plain-text interpretation report suitable for review with the PI
+
+Statistical interpretation:
+- the Student-t intervals quantify uncertainty in the mean across five initialization seeds
+- they are confidence intervals for the ensemble mean, not guaranteed prediction intervals for true stiffness
+- ensemble disagreement previously showed almost no correlation with actual residual magnitude
+- narrow intervals therefore indicate model agreement, not necessarily correctness
+- empirical coverage and spread/error correlation must be reported beside nominal confidence levels
+- external confidence claims should remain qualified because the 13 prediction lattices are distribution shifted and few in number
+
+Final decision rule:
+- do not reopen broad model optimization based on this final run
+- use uncertainty results to characterize reliability and identify model agreement or disagreement
+- retain the five-member ensemble as the best overall configuration unless future work adds materially new labeled training information
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -1240,7 +1310,11 @@ Current assessment
 37. Ordinary validation remained effectively stable, so the external gain was not purchased through a major in-distribution regression.
 38. Untouched-OOD support is positive but weak: R2 and RMSE improved slightly, while MAE was unchanged and bias worsened.
 39. The adapted model is not yet promoted because the result is single-seed and only 24 of 50 untouched-OOD samples improved.
-40. Fixed-partition multi-seed verification of the exact adaptation configuration is now the highest-value next experiment.
+40. Domain adaptation remains an unverified research result and is de-prioritized under the decision to close optimization.
+41. The five-member plain GCN-3 ensemble is the selected best overall configuration for the present dataset.
+42. The single plain GCN-3 is the selected compute-efficient configuration.
+43. Additional local model changes are unlikely to produce a practically meaningful gain without broader representative training data.
+44. The final ensemble run is intended to characterize confidence, member spread, deviations, and empirical coverage rather than search for another model configuration.
 
 
 Optimization methods to abandon
@@ -1285,7 +1359,7 @@ Recommended next steps
 5. Keep plain GCN-3 as the compute-efficient mean test-accuracy reference across varying splits.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
 7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
-8. Prepare and run fixed-partition multi-seed verification of the exact domain-adaptation configuration.
+8. Run the prepared final five-member GCN-3 ensemble confidence and deviation notebook.
 9. Use the multi-split validated plain GCN-3 ensemble when lower split sensitivity and better worst-case behavior justify training and serving five models.
 10. Do not promote weight strength 2.0 or spend compute on multiple OOD partition seeds for that failed configuration.
 11. After architecture or evaluation-strategy changes, compare only:
@@ -1296,7 +1370,7 @@ Recommended next steps
 14. Report prediction-set MAE, RMSE, signed bias, and target standard deviation alongside R2.
 15. Keep the 13 prediction lattices external to training and hyperparameter selection unless they are explicitly divided into separate calibration and test subsets.
 16. Do not prioritize larger ensembles as an error-detection method; member disagreement is not correlated with the observed residuals.
-17. If domain adaptation reproduces across model seeds, vary the adaptation split seed before final promotion.
+17. Reopen domain adaptation or other optimization only if the project scope later includes new representative labels or explicitly targets domain-specific training.
 
 
 Bottom line
@@ -1334,7 +1408,10 @@ The optimizer investigation is largely settled for the current representation:
 - Ordinary validation remained stable and untouched-OOD R2 improved by 0.0115, supporting domain alignment as the remaining modeling issue
 - Untouched-OOD MAE was effectively unchanged, OOD bias worsened, and only 24 of 50 OOD samples improved
 - The adapted model is promising but not promoted from one seed
-- The next formal experiment is fixed-partition multi-seed verification of the exact adaptation configuration
-- If model-seed verification succeeds, test sensitivity to which existing prediction-like source lattices are assigned to adaptation training
-- Continue to avoid broad optimizer, loss, and local architecture sweeps unless the OOD analysis identifies a targeted reason to reopen them
+- Optimization is now considered largely settled for the current data and project scope
+- The five-member plain GCN-3 ensemble is the selected best overall model, and the single plain GCN-3 is the compute-efficient alternative
+- Further optimizer, loss, architecture, feature, weighting, calibration, and adaptation sweeps are de-prioritized
+- The dominant remaining bottleneck is representative labeled training coverage, which is outside the current objective
+- The PI-requested final run adds confidence intervals, empirical coverage, member spread, and per-member prediction deviations to the selected ensemble
+- Treat ensemble confidence intervals as initialization-disagreement summaries, not guaranteed predictive confidence under distribution shift
 
