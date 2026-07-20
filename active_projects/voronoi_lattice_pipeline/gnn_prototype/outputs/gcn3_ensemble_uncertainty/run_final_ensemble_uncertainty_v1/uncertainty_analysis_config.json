@@ -1,0 +1,28 @@
+{
+  "member_seeds": [
+    11,
+    42,
+    73,
+    101,
+    202
+  ],
+  "split_seed": 42,
+  "confidence_levels": [
+    0.8,
+    0.9,
+    0.95
+  ],
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "patience": 999,
+  "weight_decay": 1e-05,
+  "checkpoint_interval": 50,
+  "device": "cuda",
+  "resume": true,
+  "output_group": "gcn3_ensemble_uncertainty"
+}

@@ -1,0 +1,41 @@
+GCN-3 Ensemble Confidence and Deviation Report
+==============================================
+
+Member seeds: 11, 42, 73, 101, 202
+Split seed: 42
+
+Interpretation
+--------------
+The reported intervals are Student-t confidence intervals for the mean prediction across model seeds.
+They measure initialization disagreement, not a calibrated predictive interval for the true stiffness.
+Empirical coverage shows how often known targets fall inside each nominal interval.
+Low coverage or weak spread/error correlation means the ensemble can agree while remaining systematically wrong.
+
+Dataset summaries
+-----------------
+Validation:
+- R2: 0.941066
+- RMSE: 0.003038
+- mean member standard deviation: 0.000587
+- Spearman spread/error correlation: -0.071215
+- nominal 80% mean-CI empirical coverage: 12.00%
+- nominal 90% mean-CI empirical coverage: 18.00%
+- nominal 95% mean-CI empirical coverage: 23.00%
+
+Test:
+- R2: 0.952849
+- RMSE: 0.002841
+- mean member standard deviation: 0.000570
+- Spearman spread/error correlation: 0.110699
+- nominal 80% mean-CI empirical coverage: 11.00%
+- nominal 90% mean-CI empirical coverage: 17.00%
+- nominal 95% mean-CI empirical coverage: 20.00%
+
+Prediction:
+- R2: 0.402365
+- RMSE: 0.003108
+- mean member standard deviation: 0.000448
+- Spearman spread/error correlation: -0.027473
+- nominal 80% mean-CI empirical coverage: 0.00%
+- nominal 90% mean-CI empirical coverage: 0.00%
+- nominal 95% mean-CI empirical coverage: 0.00%

@@ -1,0 +1,32 @@
+{
+  "architecture_name": "gcn3",
+  "architecture_label": "GCN-3",
+  "batch_size": 16,
+  "hidden_dim": 24,
+  "dropout": 0.1,
+  "lr_phase1": 0.003,
+  "lr_phase2": 0.0005,
+  "epochs_phase1": 200,
+  "epochs_phase2": 700,
+  "patience": 999,
+  "weight_decay": 1e-05,
+  "loss_name": "mse",
+  "huber_beta": 0.75,
+  "seed": 11,
+  "split_seed": 42,
+  "device": "cuda",
+  "output_group": "gcn3_ensemble_uncertainty",
+  "checkpoint_interval": 50,
+  "display_name": "GCN-3",
+  "effective_split_seed": 42,
+  "input_dim": 9,
+  "graph_feature_dim": 12,
+  "prediction_metrics": {
+    "MSE": 9.220051651936956e-06,
+    "RMSE": 0.003036453795455639,
+    "MAE": 0.00268383277580142,
+    "Mean Relative Error (%)": 7.348137855529785,
+    "Max Relative Error (%)": 14.916452407836914,
+    "R2": 0.4294683337211609
+  }
+}
