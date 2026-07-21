@@ -1357,6 +1357,57 @@ Final conclusion:
 - optimization remains closed under the present data and project scope
 
 
+Addendum: Mirrored-lattice sensitivity setup
+--------------------------------------------
+Purpose:
+- evaluate whether the selected final ensemble gives the same scalar stiffness prediction for a physically mirrored version of the same lattice
+- characterize learned orientation sensitivity without reopening model optimization
+- reuse the exact saved five-member final ensemble; no retraining and no new lattice generation are required
+
+Artifacts:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/mirror_sensitivity_runner.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/GCN_Optimization/run_gcn3_ensemble_mirror_sensitivity.py
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/notebooks/gcn3_ensemble_mirror_sensitivity/GCN_Cloud_Notebook_GCN3_Ensemble_Mirror_Sensitivity.ipynb
+
+Coordinate transformations:
+- original: unchanged coordinates
+- mirror_x: reflect x about the midpoint of the lattice's x bounds
+- mirror_y: reflect y about the midpoint of the lattice's y bounds
+- mirror_xy: reflect both x and y, equivalent to a 180-degree rotation about the bounding-box center
+
+Transformation controls:
+- adjacency and scalar edge weights remain unchanged
+- node ordering remains unchanged
+- all coordinate-derived node features are recomputed from transformed coordinates
+- all graph-level geometric features are recomputed
+- reflection is performed in memory and does not alter dataset files
+- each ensemble member uses its original saved feature and target scalers
+
+Evaluation data:
+- all 100 lattices from fixed test split seed 42
+- all 13 external prediction lattices
+- all five final ensemble members at seeds 11, 42, 73, 101, and 202
+
+Saved outputs:
+- original and transformed prediction for every sample and transform
+- signed, absolute, and relative ensemble prediction change
+- original and transformed ensemble-member standard deviation
+- original and transformed absolute target error
+- every member's original, transformed, signed-change, and absolute-change prediction
+- summary mean, median, maximum, and RMSE of mirror-induced changes
+- transformed model R2 and RMSE
+- mirror change expressed as a percentage of the original predictive RMSE
+- original-versus-mirrored and external prediction-change figures
+- plain-text mirror-sensitivity interpretation report
+
+Interpretation rule:
+- scalar stiffness should ideally remain unchanged under reflection when the underlying loading and boundary conditions are reflection symmetric
+- zero or negligible prediction change indicates learned reflection invariance
+- consistent nonzero change indicates orientation dependence learned from absolute x and y node features
+- compare mirror-induced change against ordinary prediction RMSE rather than treating any floating-point difference as physically meaningful
+- this addendum characterizes the finalized model and does not reopen the optimization search
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -1417,6 +1468,7 @@ Current assessment
 48. Nominal 95 percent mean-confidence intervals covered only 20 percent of test targets and 0 percent of external targets.
 49. Ensemble spread remains unsuitable as a predictive confidence score or high-error detector.
 50. The final uncertainty results strengthen the conclusion that shared domain bias, not initialization variance, is the remaining limitation.
+51. Mirrored-lattice sensitivity is the final addendum for testing whether absolute coordinate features introduce nonphysical orientation dependence.
 
 
 Optimization methods to abandon
@@ -1473,6 +1525,7 @@ Recommended next steps
 15. Keep the 13 prediction lattices external to training and hyperparameter selection unless they are explicitly divided into separate calibration and test subsets.
 16. Do not prioritize larger ensembles as an error-detection method; member disagreement is not correlated with the observed residuals.
 17. Reopen domain adaptation or other optimization only if the project scope later includes new representative labels or explicitly targets domain-specific training.
+18. Run the inference-only mirrored-lattice addendum using the saved final ensemble models.
 
 
 Bottom line
@@ -1521,4 +1574,6 @@ The optimizer investigation is largely settled for the current representation:
 - Treat ensemble confidence intervals as initialization-disagreement summaries, not calibrated predictive confidence under distribution shift
 - Use member standard deviation and deviations to describe reproducibility and agreement only
 - The final results close the optimization study and identify representative training-domain coverage as the dominant remaining bottleneck
+- Use the mirrored-lattice addendum to quantify any orientation dependence caused by absolute coordinate features
+- Treat mirror sensitivity as final model characterization, not another optimization stage
 
