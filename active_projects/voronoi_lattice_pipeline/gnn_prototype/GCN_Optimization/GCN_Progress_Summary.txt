@@ -1357,8 +1357,8 @@ Final conclusion:
 - optimization remains closed under the present data and project scope
 
 
-Addendum: Mirrored-lattice sensitivity setup
---------------------------------------------
+Addendum: Mirrored-lattice sensitivity results
+----------------------------------------------
 Purpose:
 - evaluate whether the selected final ensemble gives the same scalar stiffness prediction for a physically mirrored version of the same lattice
 - characterize learned orientation sensitivity without reopening model optimization
@@ -1406,6 +1406,26 @@ Interpretation rule:
 - consistent nonzero change indicates orientation dependence learned from absolute x and y node features
 - compare mirror-induced change against ordinary prediction RMSE rather than treating any floating-point difference as physically meaningful
 - this addendum characterizes the finalized model and does not reopen the optimization search
+
+Completed results:
+- original fixed-test performance was R2 = 0.952849 and RMSE = 0.002841
+- fixed-test mean relative prediction changes were 3.851 percent for mirror_x, 4.547 percent for mirror_y, and 5.012 percent for mirror_xy
+- fixed-test mean absolute changes were 0.000392, 0.000453, and 0.000568, respectively
+- mirrored fixed-test R2 remained stable or improved slightly: 0.954389 for mirror_x, 0.956479 for mirror_y, and 0.955504 for mirror_xy
+- original external prediction performance was R2 = 0.402365 and RMSE = 0.003108
+- external mean relative prediction changes were 0.888 percent for mirror_x, 0.603 percent for mirror_y, and 0.984 percent for mirror_xy
+- external mean absolute changes were 0.000286, 0.000196, and 0.000312, respectively
+- mirror_xy reduced external R2 to 0.331570, while mirror_x and mirror_y produced small increases to 0.417276 and 0.418762
+- the pooled mean relative change across all test and external transform combinations was approximately 2.65 percent, but this aggregate masks the higher 3.85-5.01 percent fixed-test sensitivity
+- mirror-induced mean absolute changes corresponded to 13.8-20.0 percent of the original fixed-test RMSE and 6.3-10.0 percent of the original external RMSE
+
+Assessment:
+- mirroring does not materially undermine the ensemble's established in-distribution performance
+- the model is practically reflection-robust, but it is not mathematically reflection-invariant
+- the small but measurable changes are consistent with residual orientation dependence from absolute coordinate features
+- individual-axis signed changes were near zero, providing no evidence of a large systematic directional bias
+- the external mirror_xy result warrants reporting because its R2 decline is larger, although it is based on only 13 samples and the absolute prediction change remains small
+- no architecture or training change is justified from this diagnostic alone; mirror sensitivity remains final model characterization rather than a reopened optimization direction
 
 
 Current assessment
@@ -1468,7 +1488,11 @@ Current assessment
 48. Nominal 95 percent mean-confidence intervals covered only 20 percent of test targets and 0 percent of external targets.
 49. Ensemble spread remains unsuitable as a predictive confidence score or high-error detector.
 50. The final uncertainty results strengthen the conclusion that shared domain bias, not initialization variance, is the remaining limitation.
-51. Mirrored-lattice sensitivity is the final addendum for testing whether absolute coordinate features introduce nonphysical orientation dependence.
+51. Mirrored-lattice testing found a pooled mean relative prediction change of approximately 2.65 percent across test and external transformations.
+52. Fixed-test mirror changes were 3.85-5.01 percent, while external mirror changes were only 0.60-0.98 percent.
+53. Mirrored fixed-test R2 remained between 0.9544 and 0.9565 versus 0.9528 originally, so reflection did not degrade established in-distribution performance.
+54. The model is practically reflection-robust but not exactly reflection-invariant; the residual sensitivity is measurable and should be reported rather than treated as zero.
+55. The mirror test does not justify reopening model optimization under the current project scope.
 
 
 Optimization methods to abandon
@@ -1525,7 +1549,7 @@ Recommended next steps
 15. Keep the 13 prediction lattices external to training and hyperparameter selection unless they are explicitly divided into separate calibration and test subsets.
 16. Do not prioritize larger ensembles as an error-detection method; member disagreement is not correlated with the observed residuals.
 17. Reopen domain adaptation or other optimization only if the project scope later includes new representative labels or explicitly targets domain-specific training.
-18. Run the inference-only mirrored-lattice addendum using the saved final ensemble models.
+18. Report the completed mirror analysis as practical reflection robustness with small but nonzero orientation sensitivity; no retraining is currently warranted.
 
 
 Bottom line
@@ -1574,6 +1598,8 @@ The optimizer investigation is largely settled for the current representation:
 - Treat ensemble confidence intervals as initialization-disagreement summaries, not calibrated predictive confidence under distribution shift
 - Use member standard deviation and deviations to describe reproducibility and agreement only
 - The final results close the optimization study and identify representative training-domain coverage as the dominant remaining bottleneck
-- Use the mirrored-lattice addendum to quantify any orientation dependence caused by absolute coordinate features
-- Treat mirror sensitivity as final model characterization, not another optimization stage
+- Mirroring produced a pooled mean relative change of approximately 2.65 percent; fixed-test changes were 3.85-5.01 percent and external changes were 0.60-0.98 percent
+- Fixed-test R2 remained stable or slightly improved after every mirror transform, showing that reflection does not materially weaken in-distribution performance
+- The model is practically reflection-robust but not mathematically reflection-invariant because small orientation-dependent prediction changes remain
+- The mirror results are final model characterization and do not justify reopening optimization
 
