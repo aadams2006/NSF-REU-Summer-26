@@ -1,0 +1,23 @@
+{
+  "member_seeds": [
+    11,
+    42,
+    73,
+    101,
+    202
+  ],
+  "split_seed": 42,
+  "transforms": [
+    "original",
+    "mirror_x",
+    "mirror_y",
+    "mirror_xy"
+  ],
+  "batch_size": 16,
+  "device": "cuda",
+  "resume": true,
+  "output_group": "gcn3_ensemble_mirror_sensitivity",
+  "ensemble_run_dir": "/content/drive/MyDrive/gnn_prototype_outputs/gcn3_ensemble_uncertainty/run_final_ensemble_uncertainty_v1",
+  "train_root": "/content/NSF-REU-Summer-26/active_projects/voronoi_lattice_pipeline/source_archives/lattice_data/Randomness_Sweep",
+  "predict_root": "/content/NSF-REU-Summer-26/active_projects/voronoi_lattice_pipeline/datasets/Lattice_Guess_Prediction_Input_Data"
+}

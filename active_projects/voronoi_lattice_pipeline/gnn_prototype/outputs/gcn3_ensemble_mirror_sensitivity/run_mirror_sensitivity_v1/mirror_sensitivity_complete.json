@@ -1,0 +1,9 @@
+{
+  "completed": true,
+  "transforms": [
+    "original",
+    "mirror_x",
+    "mirror_y",
+    "mirror_xy"
+  ]
+}
