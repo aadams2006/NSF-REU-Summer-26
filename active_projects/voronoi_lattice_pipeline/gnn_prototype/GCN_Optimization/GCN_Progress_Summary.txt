@@ -1261,6 +1261,102 @@ Final decision rule:
 - retain the five-member ensemble as the best overall configuration unless future work adds materially new labeled training information
 
 
+Phase 27: Final ensemble confidence and deviation results
+---------------------------------------------------------
+Source:
+- active_projects/voronoi_lattice_pipeline/gnn_prototype/outputs/gcn3_ensemble_uncertainty/run_final_ensemble_uncertainty_v1
+
+Completion:
+- all five GCN-3 members completed at seeds 11, 42, 73, 101, and 202
+- fixed data split seed: 42
+- 80, 90, and 95 percent mean-confidence intervals were generated
+- per-sample member predictions and deviations were saved for validation, test, and external prediction data
+
+Final ensemble performance:
+- validation R2: 0.941066
+- validation RMSE: 0.003038
+- validation MAE: 0.002347
+- test R2: 0.952849
+- test RMSE: 0.002841
+- test MAE: 0.002247
+- prediction R2: 0.402365
+- prediction RMSE: 0.003108
+- prediction MAE: 0.002695
+- prediction bias: -0.002043
+
+Member performance:
+- member test R2 range: 0.948367 to 0.954354
+- member prediction R2 range: 0.317494 to 0.464075
+- every member remained strong on the fixed in-distribution test split
+- external performance varied substantially more than test performance
+- the ensemble prediction R2 was below the best individual external member, but choosing that member after viewing external labels would not be a valid model-selection procedure
+
+Comparison with earlier ensemble results:
+- earlier fixed-split ensemble test R2: 0.955524
+- final characterization test R2: 0.952849
+- the small fixed-split rerun difference does not change the selected configuration
+- broader multi-split mean test R2 remains approximately 0.9456 and is still the best estimate of expected held-out performance
+- final external prediction R2 of 0.4024 is below the earlier fixed-split result of 0.4369 and multi-split mean near 0.4578
+- this variation reinforces that external prediction is less stable than ordinary held-out testing
+
+Ensemble disagreement:
+- validation mean member standard deviation: 0.000587
+- test mean member standard deviation: 0.000570
+- external mean member standard deviation: 0.000448
+- external member disagreement was lower than test disagreement even though external RMSE was higher
+- external RMSE was approximately 6.9 times the mean external member standard deviation
+- external mean member range: 0.001112
+- the models therefore agreed closely while sharing a much larger systematic error
+
+Uncertainty-versus-error relationship:
+- validation Spearman correlation: -0.0712
+- test Spearman correlation: +0.1107
+- external Spearman correlation: -0.0275
+- member spread has little to no useful relationship with absolute prediction error
+- ensemble disagreement cannot be used as a reliable high-error detector
+
+Empirical mean-confidence-interval coverage:
+- validation:
+  - nominal 80 percent interval coverage: 12 percent
+  - nominal 90 percent interval coverage: 18 percent
+  - nominal 95 percent interval coverage: 23 percent
+- test:
+  - nominal 80 percent interval coverage: 11 percent
+  - nominal 90 percent interval coverage: 17 percent
+  - nominal 95 percent interval coverage: 20 percent
+- external prediction:
+  - nominal 80 percent interval coverage: 0 percent
+  - nominal 90 percent interval coverage: 0 percent
+  - nominal 95 percent interval coverage: 0 percent
+
+Interval width:
+- mean test 95 percent confidence-interval width: 0.001415
+- mean external 95 percent confidence-interval width: 0.001113
+- the intervals are much narrower than the observed prediction errors because they estimate uncertainty in the seed-averaged mean, not total predictive error
+
+External residual behavior:
+- 11 of 13 external samples were underpredicted
+- mean external bias: -0.002043
+- largest external absolute error: approximately 0.006649 at randomness 0.4556
+- member standard deviation at that largest-error sample was only approximately 0.000602
+- the ensemble was therefore highly consistent but wrong on the most difficult external sample
+
+Interpretation:
+- the confidence calculations worked as intended and reveal that initialization uncertainty is a small component of total error
+- low empirical target coverage is expected when a confidence interval for the ensemble mean is interpreted as though it were a predictive interval
+- the intervals must not be reported as calibrated 80, 90, or 95 percent confidence that true stiffness lies inside them
+- member standard deviation, range, and deviations are valid reproducibility and model-agreement statistics
+- true predictive intervals would require residual-based or conformal calibration
+- distribution shift means even calibrated in-distribution prediction intervals would have limited external guarantees
+
+Final conclusion:
+- the five-member plain GCN-3 ensemble remains the selected high-reliability configuration
+- its main benefit is stable in-distribution performance, not accurate self-assessment of OOD error
+- ensemble agreement does not resolve the systematic external underprediction bias
+- the final results further support training-domain coverage as the dominant bottleneck
+- optimization remains closed under the present data and project scope
+
+
 Current assessment
 ------------------
 1. The strongest confirmed training setup is still plain Adam with the two-phase schedule.
@@ -1315,6 +1411,12 @@ Current assessment
 42. The single plain GCN-3 is the selected compute-efficient configuration.
 43. Additional local model changes are unlikely to produce a practically meaningful gain without broader representative training data.
 44. The final ensemble run is intended to characterize confidence, member spread, deviations, and empirical coverage rather than search for another model configuration.
+45. The final ensemble achieved test R2 = 0.952849, confirming strong fixed-split in-distribution performance.
+46. External prediction R2 remained much lower at 0.402365 with systematic bias of -0.002043.
+47. External member disagreement was smaller than test disagreement despite higher external error.
+48. Nominal 95 percent mean-confidence intervals covered only 20 percent of test targets and 0 percent of external targets.
+49. Ensemble spread remains unsuitable as a predictive confidence score or high-error detector.
+50. The final uncertainty results strengthen the conclusion that shared domain bias, not initialization variance, is the remaining limitation.
 
 
 Optimization methods to abandon
@@ -1359,7 +1461,7 @@ Recommended next steps
 5. Keep plain GCN-3 as the compute-efficient mean test-accuracy reference across varying splits.
 6. Keep narrow-LR residual GCN-3 as the best stabilized residual candidate, but do not promote it over plain GCN-3 yet.
 7. De-prioritize further optimizer, residual-retune, and loss-function sweeps unless a new representation change justifies reopening them.
-8. Run the prepared final five-member GCN-3 ensemble confidence and deviation notebook.
+8. Use the completed final ensemble uncertainty outputs for PI review and final model reporting.
 9. Use the multi-split validated plain GCN-3 ensemble when lower split sensitivity and better worst-case behavior justify training and serving five models.
 10. Do not promote weight strength 2.0 or spend compute on multiple OOD partition seeds for that failed configuration.
 11. After architecture or evaluation-strategy changes, compare only:
@@ -1413,5 +1515,10 @@ The optimizer investigation is largely settled for the current representation:
 - Further optimizer, loss, architecture, feature, weighting, calibration, and adaptation sweeps are de-prioritized
 - The dominant remaining bottleneck is representative labeled training coverage, which is outside the current objective
 - The PI-requested final run adds confidence intervals, empirical coverage, member spread, and per-member prediction deviations to the selected ensemble
-- Treat ensemble confidence intervals as initialization-disagreement summaries, not guaranteed predictive confidence under distribution shift
+- The final ensemble achieved test R2 = 0.9528 but external prediction R2 remained 0.4024 with bias near -0.00204
+- Nominal 95 percent mean-confidence intervals covered 20 percent of test targets and none of the 13 external targets
+- External member spread was lower than test spread despite worse external errors, confirming shared systematic bias
+- Treat ensemble confidence intervals as initialization-disagreement summaries, not calibrated predictive confidence under distribution shift
+- Use member standard deviation and deviations to describe reproducibility and agreement only
+- The final results close the optimization study and identify representative training-domain coverage as the dominant remaining bottleneck
 
